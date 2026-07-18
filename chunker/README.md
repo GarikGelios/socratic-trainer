@@ -1,6 +1,6 @@
-# BABOK Chunk Generator
+# Chunk Generator
 
-Parses BABOK HTML chapter files and outputs semantic JSONL chunks for vector database embedding.
+Parses book chapter files and outputs semantic JSONL chunks for vector database embedding.
 
 **Output:** `chunker/embeddings-chunks.jsonl` -- 410 chunks, one JSON object per line.
 
