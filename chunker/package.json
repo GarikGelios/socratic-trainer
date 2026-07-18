@@ -1,0 +1,12 @@
+{
+  "name": "babok-chunker",
+  "version": "1.0.0",
+  "description": "Extracts semantic chunks from BABOK HTML chapters and outputs JSONL for embedding.",
+  "main": "chunker.js",
+  "scripts": {
+    "chunk": "node chunker.js"
+  },
+  "dependencies": {
+    "node-html-parser": "^7.0.2"
+  }
+}

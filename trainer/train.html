@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BABOK Training</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; height: 100vh; display: flex; flex-direction: column; }
+
+    header { background: #0d3b66; color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header .badge { background: #f4d35e; color: #0d3b66; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+
+    .stats-bar { background: #fff; padding: 8px 20px; border-bottom: 1px solid #e0e0e0; display: flex; gap: 24px; font-size: 13px; color: #555; flex-wrap: wrap; }
+    .stats-bar .stat { display: flex; align-items: center; gap: 4px; }
+    .stats-bar .stat strong { color: #0d3b66; font-size: 15px; }
+    .stats-bar .divider { border-left: 1px solid #ddd; margin: 0 4px; }
+
+    .topic-bar { background: #fff; padding: 10px 20px; border-bottom: 1px solid #e0e0e0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .topic-bar label { font-size: 13px; color: #555; font-weight: 600; }
+    .topic-bar select { padding: 4px 8px; border-radius: 6px; border: 1px solid #ccc; font-size: 13px; }
+    .topic-bar button { background: #0d3b66; color: #fff; border: none; border-radius: 6px; padding: 6px 16px; font-size: 13px; cursor: pointer; }
+    .topic-bar button:hover { background: #1a5276; }
+    .topic-bar button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .topic-bar .suggest-controls { display: flex; align-items: center; gap: 6px; }
+    .topic-bar .suggest-controls label { font-weight: normal; color: #555; font-size: 13px; }
+    .topic-bar .suggest-controls input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; accent-color: #0d3b66; }
+    .topic-bar .suggest-controls input[type=number] { width: 44px; padding: 3px 5px; border: 1px solid #ccc; border-radius: 5px; font-size: 13px; text-align: center; }
+    .topic-bar .secondary { background: transparent; color: #888; border: 1px solid #ddd; }
+    .topic-bar .secondary:hover { background: #f5f5f5; }
+
+    .level-indicator { display: flex; gap: 3px; align-items: center; margin-left: 4px; }
+    .level-dot { width: 10px; height: 10px; border-radius: 50%; background: #ddd; transition: background 0.2s; }
+    .level-dot.active { background: #0d3b66; }
+    .level-dot.l1 { background: #27ae60; }
+    .level-dot.l2 { background: #1abc9c; }
+    .level-dot.l3 { background: #2ecc71; }
+    .level-dot.l4 { background: #f39c12; }
+    .level-dot.l5 { background: #e67e22; }
+    .level-dot.l6 { background: #e74c3c; }
+
+    #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+    .msg { padding: 14px 18px; border-radius: 12px; line-height: 1.6; font-size: 14px; }
+    .msg.system { align-self: flex-start; background: #e8f4f8; color: #0d3b66; border-left: 4px solid #0d3b66; border-bottom-left-radius: 4px; }
+    .msg.user { align-self: flex-end; background: #0d3b66; color: #fff; border-bottom-right-radius: 4px; }
+    .msg.evaluation { align-self: flex-start; background: #fff; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); border-left: 4px solid #27ae60; }
+    .msg.suggestion { align-self: center; background: #fff8e1; color: #5d4037; border: 1px solid #ffe082; border-radius: 8px; text-align: center; max-width: 90%; }
+    .msg.suggestion button { margin: 8px 4px 0; padding: 4px 14px; border-radius: 6px; border: none; font-size: 13px; cursor: pointer; }
+    .msg.suggestion .accept { background: #27ae60; color: #fff; }
+    .msg.suggestion .accept:hover { background: #219a52; }
+    .msg.suggestion .dismiss { background: #eee; color: #555; }
+    .msg.suggestion .dismiss:hover { background: #ddd; }
+
+    .msg h1, .msg h2, .msg h3 { margin: 10px 0 6px; }
+    .msg h2 { font-size: 15px; color: #0d3b66; }
+    .msg h3 { font-size: 14px; }
+    .msg ul, .msg ol { margin: 4px 0 4px 20px; }
+    .msg li { margin: 3px 0; }
+    .msg strong { color: #0d3b66; }
+    .msg code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 13px; }
+    .msg p { margin: 6px 0; }
+    .msg .meta { font-size: 11px; color: #888; margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px; }
+    .msg .meta span { background: #f0f0f0; padding: 1px 6px; border-radius: 8px; margin-right: 6px; }
+
+    .msg .level-badge { display: inline-block; padding: 1px 8px; border-radius: 8px; font-size: 11px; font-weight: 700; margin-right: 6px; }
+    .lb-1 { background: #d4edda; color: #155724; }
+    .lb-2 { background: #d0f0eb; color: #0d6856; }
+    .lb-3 { background: #d1ecf1; color: #0c5460; }
+    .lb-4 { background: #fff3cd; color: #856404; }
+    .lb-5 { background: #fce4ec; color: #b71c1c; }
+    .lb-6 { background: #f3e5f5; color: #4a148c; }
+
+    .score-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-weight: 700; font-size: 13px; }
+    .score-high { background: #d4edda; color: #155724; }
+    .score-mid { background: #fff3cd; color: #856404; }
+    .score-low { background: #f8d7da; color: #721c24; }
+
+    .mc-options { margin: 12px 0 4px; display: flex; flex-direction: column; gap: 6px; }
+    .mc-option { background: #fff; border: 2px solid #ddd; border-radius: 8px; padding: 10px 14px; cursor: pointer; font-size: 14px; text-align: left; transition: all 0.15s; display: flex; align-items: flex-start; gap: 8px; }
+    .mc-option:hover { border-color: #0d3b66; background: #f0f7ff; }
+    .mc-option .letter { font-weight: 700; color: #0d3b66; min-width: 20px; }
+    .mc-option.selected { border-color: #0d3b66; background: #e8f4f8; }
+    .mc-option:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .ms-options { margin: 12px 0 4px; display: flex; flex-direction: column; gap: 6px; }
+    .ms-option { background: #fff; border: 2px solid #ddd; border-radius: 8px; padding: 10px 14px; cursor: pointer; font-size: 14px; text-align: left; transition: all 0.15s; display: flex; align-items: flex-start; gap: 8px; }
+    .ms-option:hover { border-color: #0d3b66; background: #f0f7ff; }
+    .ms-option .letter { font-weight: 700; color: #555; min-width: 20px; }
+    .ms-option.ms-selected { border-color: #0d3b66; background: #e8f4f8; }
+    .ms-option.ms-selected .letter { color: #0d3b66; }
+    .ms-submit { margin-top: 10px; background: #0d3b66; color: #fff; border: none; border-radius: 8px; padding: 8px 20px; font-size: 14px; cursor: pointer; }
+    .ms-submit:hover { background: #1a5276; }
+    .ms-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .ms-results { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+    .ms-result-opt { border-radius: 8px; padding: 10px 14px; font-size: 14px; border-left: 4px solid transparent; }
+    .ms-result-opt .ms-opt-label { font-weight: 700; margin-bottom: 4px; }
+    .ms-result-opt .ms-explain { font-size: 13px; color: #555; margin-top: 4px; }
+    .ms-correct-selected { background: #d4edda; border-left-color: #27ae60; }  /* green: right and picked */
+    .ms-correct-missed  { background: #fff8e1; border-left-color: #f39c12; }  /* yellow: right but not picked */
+    .ms-wrong-selected  { background: #f8d7da; border-left-color: #e74c3c; }  /* red: wrong but picked */
+    .ms-wrong-ignored   { background: #f5f5f5; border-left-color: #ccc; }     /* grey: wrong and not picked */
+
+    .typing { align-self: flex-start; color: #999; font-style: italic; font-size: 13px; padding: 8px 16px; }
+
+    #input-area { padding: 12px 20px; background: #fff; border-top: 1px solid #e0e0e0; display: flex; gap: 8px; }
+    #input-area textarea { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-family: inherit; resize: none; outline: none; min-height: 60px; max-height: 200px; }
+    #input-area textarea:focus { border-color: #0d3b66; }
+    #input-area button { background: #27ae60; color: #fff; border: none; border-radius: 8px; padding: 0 20px; font-size: 14px; cursor: pointer; white-space: nowrap; align-self: flex-end; min-height: 40px; }
+    #input-area button:hover { background: #219a52; }
+    #input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #input-area.hidden { display: none; }
+
+    .welcome { text-align: center; padding: 40px 20px; color: #555; }
+    .welcome h2 { color: #0d3b66; margin-bottom: 8px; font-size: 20px; }
+    .welcome p { margin: 6px 0; font-size: 14px; }
+    .welcome .levels-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; text-align: left; max-width: 520px; margin: 16px auto 0; font-size: 13px; }
+    .welcome .levels-grid .ln { font-weight: 700; }
+
+    /* ===================== MOBILE UI (max-width 480px) ===================== */
+    @media (max-width: 480px) {
+      body { padding-bottom: 60px; }
+
+      /* Stats-bar and topic-bar become slide-up bottom-sheet panels */
+      .stats-bar, .topic-bar {
+        position: fixed !important;
+        left: 0; right: 0; bottom: 60px;
+        z-index: 200;
+        max-height: 75vh;
+        overflow-y: auto;
+        display: flex !important;
+        flex-direction: column !important;
+        flex-wrap: nowrap !important;
+        gap: 10px;
+        padding: 0 16px 20px;
+        border-top: 3px solid #0d3b66;
+        border-bottom: none;
+        box-shadow: 0 -6px 24px rgba(0,0,0,0.22);
+        transform: translateY(110%);
+        transition: transform 0.28s cubic-bezier(0.4,0,0.2,1), opacity 0.2s ease;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .stats-bar.panel-open, .topic-bar.panel-open {
+        transform: translateY(0);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      /* Sticky panel drag-handle header */
+      .panel-handle {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 0 8px;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 4px;
+        font-size: 13px; font-weight: 700; color: #0d3b66;
+        position: sticky; top: 0; background: #fff; z-index: 1;
+      }
+      .panel-handle .close-panel {
+        background: none; border: none; font-size: 22px; line-height: 1;
+        color: #aaa; cursor: pointer; padding: 0 2px;
+      }
+      .panel-handle .close-panel:hover { color: #333; }
+
+      /* Stats panel row wrapping */
+      .stats-bar { flex-direction: row !important; flex-wrap: wrap !important; gap: 8px 20px; align-content: flex-start; }
+
+      /* Topic panel full-width controls */
+      .topic-bar select { width: 100%; max-width: 100%; }
+      .topic-bar .suggest-controls { flex-wrap: wrap; gap: 6px; width: 100%; }
+      .topic-bar label:not(.suggest-controls label) { display: block; margin-bottom: 2px; }
+
+      /* Hide the desktop action buttons inside topic-bar (duplicated in mobile-bar) */
+      .topic-bar #ask-btn,
+      .topic-bar .secondary { display: none !important; }
+
+      /* ?? Mobile fixed action bar ?? */
+      .mobile-bar {
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: 60px;
+        background: #fff;
+        border-top: 1px solid #e0e0e0;
+        display: flex !important;
+        align-items: center;
+        gap: 8px;
+        padding: 0 12px;
+        z-index: 300;
+      }
+      #ask-btn-mobile {
+        flex: 1;
+        background: #0d3b66; color: #fff;
+        border: none; border-radius: 8px;
+        padding: 0 12px; font-size: 14px; font-weight: 600;
+        cursor: pointer; height: 42px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      #ask-btn-mobile:hover:not(:disabled) { background: #1a5276; }
+      #ask-btn-mobile:disabled { opacity: 0.5; cursor: not-allowed; }
+      .mob-reset {
+        background: transparent; color: #555;
+        border: 1px solid #ddd; border-radius: 8px;
+        padding: 0 12px; font-size: 13px;
+        cursor: pointer; height: 42px; white-space: nowrap; flex-shrink: 0;
+      }
+      .mob-reset:hover { background: #f5f5f5; }
+      .mob-icon-btn {
+        background: none; border: 1px solid #ddd; border-radius: 8px;
+        width: 42px; height: 42px; font-size: 18px;
+        cursor: pointer; display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .mob-icon-btn:hover { background: #f0f0f0; }
+      .mob-icon-btn.active { background: #e8f4f8; border-color: #0d3b66; }
+
+      /* Backdrop overlay behind open panel */
+      .sheet-backdrop {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 60px;
+        background: rgba(0,0,0,0.38);
+        z-index: 150;
+        display: none;
+        animation: backdropIn 0.2s ease;
+      }
+      .sheet-backdrop.active { display: block; }
+      @keyframes backdropIn { from { opacity: 0; } to { opacity: 1; } }
+    }
+
+    /* Desktop: keep mobile-only elements invisible */
+    @media (min-width: 481px) {
+      .mobile-bar { display: none !important; }
+      .sheet-backdrop { display: none !important; }
+      .panel-handle { display: none !important; }
+    }
+
+    /* ── SETTINGS MODAL ── */
+    .cfg-btn {
+      margin-left: auto; background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3); color: #fff;
+      border-radius: 8px; padding: 6px 11px; font-size: 19px;
+      cursor: pointer; line-height: 1; flex-shrink: 0; transition: background 0.15s;
+    }
+    .cfg-btn:hover { background: rgba(255,255,255,0.28); }
+
+    .cfg-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.45); z-index: 1000;
+      display: none; align-items: flex-start; justify-content: flex-end;
+    }
+    .cfg-overlay.open { display: flex; }
+
+    .cfg-panel {
+      width: min(600px, 100vw); height: 100dvh;
+      background: #fff; display: flex; flex-direction: column;
+      animation: cfgIn 0.22s cubic-bezier(0.4,0,0.2,1);
+    }
+    @keyframes cfgIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+    .cfg-head {
+      background: #0d3b66; color: #fff;
+      padding: 12px 16px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+    }
+    .cfg-head h2 { font-size: 15px; font-weight: 600; margin: 0; flex: 1; }
+    .cfg-close { background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; opacity: 0.8; padding: 0 4px; line-height:1; }
+    .cfg-close:hover { opacity: 1; }
+
+    .cfg-tabs { display: flex; border-bottom: 2px solid #e0e0e0; background: #f8f8f8; flex-shrink: 0; }
+    .cfg-tab {
+      flex: 1; padding: 10px 4px; border: none; background: none;
+      font-size: 13px; font-weight: 600; color: #666; cursor: pointer;
+      border-bottom: 3px solid transparent; margin-bottom: -2px; transition: all 0.15s;
+    }
+    .cfg-tab:hover { color: #0d3b66; background: #efefef; }
+    .cfg-tab.active { color: #0d3b66; border-bottom-color: #0d3b66; background: #fff; }
+
+    .cfg-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+    .cfg-pane { display: none; flex-direction: column; gap: 14px; }
+    .cfg-pane.active { display: flex; }
+
+    .cfg-card { border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; }
+    .cfg-card-hd { background: #f5f7fa; padding: 8px 14px; font-size: 13px; font-weight: 700; color: #0d3b66; border-bottom: 1px solid #e0e0e0; }
+    .cfg-card-bd { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .cfg-card-ft { padding: 8px 14px; background: #fafafa; border-top: 1px solid #e0e0e0; display: flex; align-items: center; gap: 8px; }
+
+    .cfg-field { display: flex; flex-direction: column; gap: 4px; }
+    .cfg-field label { font-size: 12px; font-weight: 600; color: #555; }
+    .cfg-field .hint { font-size: 11px; color: #999; }
+    .cfg-field .hint code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+    .cfg-field textarea {
+      border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px;
+      font-size: 12px; font-family: monospace; resize: vertical; min-height: 80px;
+      outline: none; line-height: 1.5;
+    }
+    .cfg-field textarea:focus { border-color: #0d3b66; }
+    .cfg-field input[type=number], .cfg-field input[type=text] {
+      border: 1px solid #ddd; border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none;
+    }
+    .cfg-field input[type=number] { width: 80px; }
+    .cfg-field input[type=text] { width: 100%; }
+    .cfg-field input:focus { border-color: #0d3b66; }
+    .cfg-row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .cfg-row .cfg-field { flex: 1; min-width: 100px; }
+
+    .btn-save { background: #0d3b66; color: #fff; border: none; border-radius: 6px; padding: 6px 16px; font-size: 13px; cursor: pointer; font-weight: 600; }
+    .btn-save:hover { background: #1a5276; }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-def  { background: none; color: #888; border: 1px solid #ddd; border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer; }
+    .btn-def:hover  { background: #f5f5f5; color: #555; }
+    .save-st { font-size: 12px; margin-left: 2px; }
+    .save-st.ok  { color: #27ae60; }
+    .save-st.err { color: #e74c3c; }
+
+    .lvl-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+    .lvl-pill {
+      padding: 5px 14px; border-radius: 20px; border: 2px solid #ddd;
+      background: #f5f5f5; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+    }
+    .lvl-pill:hover { border-color: #0d3b66; }
+    .lvl-pill.active { background: #0d3b66; color: #fff; border-color: #0d3b66; }
+
+    .info-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .info-chip { background: #f0f4f8; border: 1px solid #dce3ec; border-radius: 6px; padding: 4px 10px; font-size: 12px; color: #555; }
+    .info-chip strong { color: #0d3b66; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BABOK® Training</h1>
+    <span class="badge">PRACTICE</span>
+    <button class="cfg-btn" onclick="openCfg()" title="AI &amp; Trainer Settings">🤖</button>
+  </header>
+
+  <div class="stats-bar" id="stats-bar">
+    <div class="panel-handle"><span>📊 Stats</span><button class="close-panel" onclick="closeAllMobilePanels()" aria-label="Close">×</button></div>
+    <div class="stat">Level: <strong id="stat-level">1</strong><span id="stat-level-name" style="margin-left:4px;font-size:12px;color:#888">Recognition</span></div>
+    <div class="level-indicator" id="level-dots">
+      <span class="level-dot l1 active" title="Level 1: Recognition"></span>
+      <span class="level-dot" title="Level 2: Multi-Select"></span>
+      <span class="level-dot" title="Level 3: Understanding"></span>
+      <span class="level-dot" title="Level 4: Application"></span>
+      <span class="level-dot" title="Level 5: Analysis"></span>
+      <span class="level-dot" title="Level 6: Synthesis"></span>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">Questions: <strong id="stat-asked">0</strong></div>
+    <div class="stat">Avg Score: <strong id="stat-avg">—</strong></div>
+    <div class="divider"></div>
+    <div class="stat">Level Avg: <strong id="stat-level-avg">—</strong> <span style="font-size:11px;color:#aaa" id="stat-level-count"></span></div>
+  </div>
+
+  <div class="topic-bar" id="topic-bar">
+    <div class="panel-handle"><span>⚙️ Settings</span><button class="close-panel" onclick="closeAllMobilePanels()" aria-label="Close">×</button></div>
+    <label for="level">Level:</label>
+    <select id="level">
+      <option value="1">1 — Recognition (multiple choice)</option>
+      <option value="2">2 — Multi-Select (all correct options)</option>
+      <option value="3">3 — Understanding (one-sentence)</option>
+      <option value="4">4 — Application (structured answer)</option>
+      <option value="5">5 — Analysis (compare &amp; relate)</option>
+      <option value="6">6 — Synthesis (scenario-based)</option>
+    </select>
+    <div class="suggest-controls">
+      <input type="checkbox" id="suggest-level" checked title="Show a suggestion when score consistently exceeds the level-change thresholds (set in Settings)">
+      <label for="suggest-level">Suggest level changes</label>
+    </div>
+    <label for="topic">Topic:</label>
+    <select id="topic">
+      <option value="">All (random)</option>
+      <optgroup label="── Knowledge Area Tasks ──">
+        <option value="tasks">All Tasks (random)</option>
+        <option value="chapter:3">3. BA Planning &amp; Monitoring (all)</option>
+        <option value="task:plan-business-analysis-approach">&nbsp;&nbsp;3.1 Plan Business Analysis Approach</option>
+        <option value="task:plan-stakeholder-engagement">&nbsp;&nbsp;3.2 Plan Stakeholder Engagement</option>
+        <option value="task:plan-business-analysis-governance">&nbsp;&nbsp;3.3 Plan Business Analysis Governance</option>
+        <option value="task:plan-business-analysis-information-management">&nbsp;&nbsp;3.4 Plan BA Information Management</option>
+        <option value="task:identify-business-analysis-performance-improvements">&nbsp;&nbsp;3.5 Identify BA Performance Improvements</option>
+        <option value="chapter:4">4. Elicitation &amp; Collaboration (all)</option>
+        <option value="task:prepare-for-elicitation">&nbsp;&nbsp;4.1 Prepare for Elicitation</option>
+        <option value="task:conduct-elicitation">&nbsp;&nbsp;4.2 Conduct Elicitation</option>
+        <option value="task:confirm-elicitation-results">&nbsp;&nbsp;4.3 Confirm Elicitation Results</option>
+        <option value="task:communicate-business-analysis-information">&nbsp;&nbsp;4.4 Communicate BA Information</option>
+        <option value="task:manage-stakeholder-collaboration">&nbsp;&nbsp;4.5 Manage Stakeholder Collaboration</option>
+        <option value="chapter:5">5. Requirements Life Cycle Management (all)</option>
+        <option value="task:trace-requirements">&nbsp;&nbsp;5.1 Trace Requirements</option>
+        <option value="task:maintain-requirements">&nbsp;&nbsp;5.2 Maintain Requirements</option>
+        <option value="task:prioritize-requirements">&nbsp;&nbsp;5.3 Prioritize Requirements</option>
+        <option value="task:assess-requirements-changes">&nbsp;&nbsp;5.4 Assess Requirements Changes</option>
+        <option value="task:approve-requirements">&nbsp;&nbsp;5.5 Approve Requirements</option>
+        <option value="chapter:6">6. Strategy Analysis (all)</option>
+        <option value="task:analyze-current-state">&nbsp;&nbsp;6.1 Analyze Current State</option>
+        <option value="task:define-future-state">&nbsp;&nbsp;6.2 Define Future State</option>
+        <option value="task:assess-risks">&nbsp;&nbsp;6.3 Assess Risks</option>
+        <option value="task:define-change-strategy">&nbsp;&nbsp;6.4 Define Change Strategy</option>
+        <option value="chapter:7">7. Requirements Analysis &amp; Design Definition (all)</option>
+        <option value="task:specify-and-model-requirements">&nbsp;&nbsp;7.1 Specify and Model Requirements</option>
+        <option value="task:verify-requirements">&nbsp;&nbsp;7.2 Verify Requirements</option>
+        <option value="task:validate-requirements">&nbsp;&nbsp;7.3 Validate Requirements</option>
+        <option value="task:define-requirements-architecture">&nbsp;&nbsp;7.4 Define Requirements Architecture</option>
+        <option value="task:define-design-options">&nbsp;&nbsp;7.5 Define Design Options</option>
+        <option value="task:analyze-potential-value-and-recommend-solution">&nbsp;&nbsp;7.6 Analyze Potential Value &amp; Recommend Solution</option>
+        <option value="chapter:8">8. Solution Evaluation (all)</option>
+        <option value="task:measure-solution-performance">&nbsp;&nbsp;8.1 Measure Solution Performance</option>
+        <option value="task:analyze-performance-measures">&nbsp;&nbsp;8.2 Analyze Performance Measures</option>
+        <option value="task:assess-solution-limitations">&nbsp;&nbsp;8.3 Assess Solution Limitations</option>
+        <option value="task:assess-enterprise-limitations">&nbsp;&nbsp;8.4 Assess Enterprise Limitations</option>
+        <option value="task:recommend-actions-to-increase-solution-value">&nbsp;&nbsp;8.5 Recommend Actions to Increase Solution Value</option>
+      </optgroup>
+      <optgroup label="── Other Topics ──">
+        <option value="techniques">Techniques</option>
+        <option value="glossary">Glossary Terms</option>
+        <option value="stakeholders">Stakeholders</option>
+        <option value="concepts">Key Concepts</option>
+        <option value="perspectives">Perspectives</option>
+      </optgroup>
+    </select>
+    <div class="suggest-controls">
+      <label for="dedup-window" style="color:#555">Skip last</label>
+      <input type="number" id="dedup-window" value="10" min="1" max="100" title="Number of recent answers to check when avoiding chunk repetition">
+      <label for="dedup-window" style="color:#888">answers for repeats</label>
+    </div>
+    <button id="ask-btn" onclick="askQuestion()">Ask me</button>
+    <button class="secondary" onclick="resetSession()">Reset</button>
+  </div>
+
+  <div id="chat">
+    <div class="welcome">
+      <h2>BABOK® Socratic Training</h2>
+      <p>Progressive complexity — start simple, build deep understanding.</p>
+      <div class="levels-grid">
+        <span class="ln" style="color:#27ae60">Level 1</span><span>Recognition — Pick the one correct option from multiple choice</span>
+        <span class="ln" style="color:#1abc9c">Level 2</span><span>Multi-Select — Select all correct options from a list</span>
+        <span class="ln" style="color:#2ecc71">Level 3</span><span>Understanding — Define or explain in one sentence</span>
+        <span class="ln" style="color:#f39c12">Level 4</span><span>Application — Describe elements, list steps, explain usage</span>
+        <span class="ln" style="color:#e67e22">Level 5</span><span>Analysis — Compare concepts, explain relationships</span>
+        <span class="ln" style="color:#e74c3c">Level 6</span><span>Synthesis — Design a BA approach for a real scenario</span>
+      </div>
+      <p style="margin-top:16px">Select a level and topic, then click <strong>Ask me</strong>.</p>
+      <p style="font-size:12px;color:#999">Score ≥ 7/10 on 3+ questions → level-up suggestion. &lt; 4/10 → level-down suggestion.</p>
+    </div>
+  </div>
+
+  <div id="input-area" class="hidden">
+    <textarea id="answer" rows="3" placeholder="Type your answer here..."></textarea>
+    <button id="submit-btn" onclick="submitAnswer()">Submit</button>
+  </div>
+
+  <script>
+    const LEVEL_NAMES = { 1: 'Recognition', 2: 'Multi-Select', 3: 'Understanding', 4: 'Application', 5: 'Analysis', 6: 'Synthesis' };
+    const LEVEL_COLORS = ['', 'l1', 'l2', 'l3', 'l4', 'l5', 'l6'];
+
+    let sessionId = null;
+    let awaitingAnswer = false;
+    let currentLevel = 1;
+    let multiSelectActive = false;  // true when a Level 2 question is pending
+    const chatEl = document.getElementById('chat');
+    const answerEl = document.getElementById('answer');
+    const inputArea = document.getElementById('input-area');
+    const askBtn = document.getElementById('ask-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    const levelSelect = document.getElementById('level');
+
+    // Sync level selector with state
+    levelSelect.addEventListener('change', () => {
+      currentLevel = parseInt(levelSelect.value, 10);
+      updateLevelDisplay();
+    });
+
+    // Sync Settings panel checkbox when topic-bar checkbox changes
+    document.getElementById('suggest-level').addEventListener('change', function() {
+      var cfgCb = document.getElementById('cfg-suggest-level');
+      if (cfgCb) cfgCb.checked = this.checked;
+    });
+
+    // Auto-grow textarea
+    answerEl.addEventListener('input', () => {
+      answerEl.style.height = 'auto';
+      answerEl.style.height = Math.min(answerEl.scrollHeight, 200) + 'px';
+    });
+
+    // Ctrl+Enter to submit
+    answerEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) {
+        e.preventDefault();
+        submitAnswer();
+      }
+    });
+
+
+    // Sync disabled state of ask button on both desktop and mobile bars
+    function setAskDisabled(val) {
+      askBtn.disabled = val;
+      var mob = document.getElementById('ask-btn-mobile');
+      if (mob) mob.disabled = val;
+    }
+
+    // Mobile bottom-sheet panel toggle
+    function toggleMobilePanel(name) {
+      var panel = document.getElementById(name + '-bar');
+      var btn = document.getElementById(name + '-toggle-btn');
+      var otherName = name === 'stats' ? 'topic' : 'stats';
+      var otherPanel = document.getElementById(otherName + '-bar');
+      var otherBtn = document.getElementById(otherName + '-toggle-btn');
+      var backdrop = document.getElementById('sheet-backdrop');
+      var isOpen = panel.classList.contains('panel-open');
+      // Always close the other panel first
+      otherPanel.classList.remove('panel-open');
+      if (otherBtn) otherBtn.classList.remove('active');
+      if (isOpen) {
+        panel.classList.remove('panel-open');
+        if (btn) btn.classList.remove('active');
+        if (backdrop) backdrop.classList.remove('active');
+      } else {
+        panel.classList.add('panel-open');
+        if (btn) btn.classList.add('active');
+        if (backdrop) backdrop.classList.add('active');
+      }
+    }
+
+    function closeAllMobilePanels() {
+      ['stats', 'topic'].forEach(function(name) {
+        var panel = document.getElementById(name + '-bar');
+        var btn = document.getElementById(name + '-toggle-btn');
+        if (panel) panel.classList.remove('panel-open');
+        if (btn) btn.classList.remove('active');
+      });
+      var backdrop = document.getElementById('sheet-backdrop');
+      if (backdrop) backdrop.classList.remove('active');
+    }
+
+    function updateLevelDisplay() {
+      document.getElementById('stat-level').textContent = currentLevel;
+      document.getElementById('stat-level-name').textContent = LEVEL_NAMES[currentLevel];
+      const dots = document.querySelectorAll('#level-dots .level-dot');
+      dots.forEach((dot, i) => {
+        dot.className = 'level-dot';
+        if (i < currentLevel) dot.classList.add(LEVEL_COLORS[i + 1], 'active');
+      });
+    }
+
+    async function askQuestion() {
+      setAskDisabled(true);
+      closeAllMobilePanels();
+      awaitingAnswer = false;
+      inputArea.classList.add('hidden');
+
+      // Sync level from selector
+      currentLevel = parseInt(levelSelect.value, 10);
+      updateLevelDisplay();
+
+      // Remove welcome screen if present
+      const welcome = chatEl.querySelector('.welcome');
+      if (welcome) welcome.remove();
+
+      const typingEl = showTyping('Generating Level ' + currentLevel + ' question...');
+
+      try {
+        const res = await fetch('/api/train/question', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId,
+            topic: document.getElementById('topic').value,
+            level: currentLevel,
+            suggestLevel: document.getElementById('suggest-level').checked,
+            dedupWindow: parseInt(document.getElementById('dedup-window').value, 10) || 10,
+          }),
+        });
+        const data = await res.json();
+        typingEl.remove();
+
+        if (!res.ok) {
+          appendMsg('system', 'Error: ' + (data.error || 'Failed to get question'));
+          setAskDisabled(false);
+          return;
+        }
+
+        sessionId = data.sessionId;
+        if (data.level) currentLevel = data.level;
+        updateStats(data.stats);
+
+        // Build question message with level badge
+        const lvlBadge = `<span class="level-badge lb-${data.level}">L${data.level} ${escapeHtml(data.levelName)}</span>`;
+        const metaHtml = `<div class="meta">${lvlBadge}<span>${escapeHtml(data.category)}</span> <span>${escapeHtml(data.topic)}</span></div>`;
+
+        if (data.options && data.options.length > 0 && data.multiSelect) {
+          // Level 2: Multi-select — render toggle buttons + submit
+          multiSelectActive = true;
+          let html = escapeHtml(data.question) + '<div class="ms-options">';
+          data.options.forEach(o => {
+            html += `<button class="ms-option" onclick="toggleOption(this, '${o.letter}')"><span class="letter">${o.letter})</span> ${escapeHtml(o.text)}</button>`;
+          });
+          html += '</div>';
+          html += `<button class="ms-submit" id="ms-submit-btn" disabled onclick="submitMultiSelect()">Submit Selection</button>`;
+          html += metaHtml;
+          appendMsg('system', html, true);
+          awaitingAnswer = true;
+        } else if (data.options && data.options.length > 0) {
+          // Level 1: Multiple choice — render question + clickable option buttons
+          multiSelectActive = false;
+          let html = escapeHtml(data.question) + '<div class="mc-options">';
+          data.options.forEach(o => {
+            html += `<button class="mc-option" onclick="selectOption(this, '${o.letter}')"><span class="letter">${o.letter})</span> ${escapeHtml(o.text)}</button>`;
+          });
+          html += '</div>' + metaHtml;
+          appendMsg('system', html, true);
+          awaitingAnswer = true;
+          // Don't show textarea for MC
+        } else {
+          // Levels 3-6: Free text
+          multiSelectActive = false;
+          appendMsg('system', escapeHtml(data.question) + metaHtml, true);
+          awaitingAnswer = true;
+          inputArea.classList.remove('hidden');
+          answerEl.value = '';
+          answerEl.focus();
+          // Adjust placeholder based on level
+          const placeholders = {
+            3: 'Type your answer in one or two sentences...',
+            4: 'Describe the key elements or steps in a structured way...',
+            5: 'Compare and analyze the BABOK elements. Explain relationships...',
+            6: 'Design your BA approach: recommend knowledge areas, tasks, techniques with reasoning...',
+          };
+          answerEl.placeholder = placeholders[currentLevel] || 'Type your answer here...';
+        }
+      } catch (err) {
+        typingEl.remove();
+        appendMsg('system', 'Connection error. Is the server running?');
+      }
+      setAskDisabled(false);
+    }
+
+    function selectOption(btn, letter) {
+      if (!awaitingAnswer) return;
+      // Highlight selected option
+      document.querySelectorAll('.mc-option').forEach(b => {
+        b.classList.remove('selected');
+        b.disabled = true;
+      });
+      btn.classList.add('selected');
+      awaitingAnswer = false;
+      setAskDisabled(true);
+
+      // Submit the selected letter
+      doSubmit(letter);
+    }
+
+    function toggleOption(btn, letter) {
+      if (!awaitingAnswer) return;
+      btn.classList.toggle('ms-selected');
+      // Scope to the current question's container to avoid matching stale buttons from previous questions
+      const msgContainer = btn.closest('.msg');
+      const selected = msgContainer ? msgContainer.querySelectorAll('.ms-option.ms-selected') : [];
+      const submitBtn2 = msgContainer ? msgContainer.querySelector('.ms-submit') : null;
+      if (submitBtn2) submitBtn2.disabled = selected.length === 0;
+    }
+
+    function submitMultiSelect() {
+      if (!awaitingAnswer) return;
+      // Scope to the active (undisabled) question container only
+      const activeContainer = [...document.querySelectorAll('.msg.system')]
+        .reverse()
+        .find(el => el.querySelector('.ms-option:not([disabled])'));
+      if (!activeContainer) return;
+
+      const selected = [...activeContainer.querySelectorAll('.ms-option.ms-selected')];
+      if (selected.length === 0) return;
+
+      // Disable all option buttons and the submit button in this container
+      activeContainer.querySelectorAll('.ms-option').forEach(b => { b.disabled = true; });
+      const submitBtn2 = activeContainer.querySelector('.ms-submit');
+      if (submitBtn2) submitBtn2.disabled = true;
+
+      awaitingAnswer = false;
+      setAskDisabled(true);
+      multiSelectActive = false;
+
+      // Build display string and answer payload
+      const letters = selected.map(b => b.querySelector('.letter').textContent.replace(')', '').trim());
+      const displayText = 'Selected: ' + letters.join(', ');
+      appendMsg('user', displayText);
+
+      doSubmit(letters.join(','));
+    }
+
+    async function submitAnswer() {
+      if (!awaitingAnswer) return;
+      const text = answerEl.value.trim();
+      if (!text) return;
+
+      submitBtn.disabled = true;
+      setAskDisabled(true);
+      awaitingAnswer = false;
+
+      // Show user's answer
+      appendMsg('user', text);
+      inputArea.classList.add('hidden');
+
+      await doSubmit(text);
+      submitBtn.disabled = false;
+    }
+
+    async function doSubmit(answer) {
+      const typingEl = showTyping('Evaluating your answer...');
+
+      try {
+        const res = await fetch('/api/train/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, answer }),
+        });
+        const data = await res.json();
+        typingEl.remove();
+
+        if (!res.ok) {
+          appendMsg('system', 'Error: ' + (data.error || 'Failed to evaluate'));
+          setAskDisabled(false);
+          return;
+        }
+
+        // Show evaluation with score badge
+        let evalHtml;
+        if (data.multiSelect && data.optionResults && data.optionResults.length > 0) {
+          // Level 2: render per-option colour-coded results
+          let resultsHtml = '<div class="ms-results">';
+          data.optionResults.forEach(opt => {
+            let cls, icon;
+            if (opt.isCorrect && opt.wasSelected)   { cls = 'ms-correct-selected'; icon = '✅'; }
+            else if (opt.isCorrect && !opt.wasSelected) { cls = 'ms-correct-missed';  icon = '🟡'; }
+            else if (!opt.isCorrect && opt.wasSelected) { cls = 'ms-wrong-selected';  icon = '❌'; }
+            else                                        { cls = 'ms-wrong-ignored';   icon = '⬜'; }
+            resultsHtml += `<div class="ms-result-opt ${cls}">
+              <div class="ms-opt-label">${icon} <strong>${escapeHtml(opt.letter)})</strong> ${escapeHtml(opt.text)}</div>
+              ${opt.explanation ? `<div class="ms-explain">${escapeHtml(opt.explanation)}</div>` : ''}
+            </div>`;
+          });
+          resultsHtml += '</div>';
+          evalHtml = renderMarkdown(data.evaluation) + resultsHtml;
+        } else {
+          evalHtml = renderMarkdown(data.evaluation);
+        }
+        if (data.score !== null) {
+          const cls = data.score >= 7 ? 'score-high' : data.score >= 4 ? 'score-mid' : 'score-low';
+          evalHtml = `<span class="score-badge ${cls}">${data.score}/10</span> ` + evalHtml;
+        }
+        const lvlBadge = `<span class="level-badge lb-${data.level}">L${data.level} ${escapeHtml(data.levelName)}</span>`;
+        const metaHtml = `<div class="meta">${lvlBadge}<span>${escapeHtml(data.category)}</span> <span>${escapeHtml(data.topic)}</span></div>`;
+        appendMsg('evaluation', evalHtml + metaHtml, true);
+
+        updateStats(data.stats, data.levelStats);
+
+        // Show level suggestion only when checkbox is enabled
+        if (data.suggestion && data.suggestedLevel && document.getElementById('suggest-level').checked) {
+          showSuggestion(data.suggestion, data.suggestedLevel);
+        }
+      } catch (err) {
+        typingEl.remove();
+        appendMsg('system', 'Connection error.');
+      }
+
+      setAskDisabled(false);
+    }
+
+    function showSuggestion(text, newLevel) {
+      const div = document.createElement('div');
+      div.className = 'msg suggestion';
+      div.innerHTML = `<p>${escapeHtml(text)}</p>
+        <button class="accept" onclick="applyLevel(${newLevel}); this.closest('.msg').remove();">Move to Level ${newLevel}</button>
+        <button class="dismiss" onclick="this.closest('.msg').remove();">Stay at current level</button>`;
+      chatEl.appendChild(div);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function applyLevel(lvl) {
+      currentLevel = lvl;
+      levelSelect.value = lvl;
+      updateLevelDisplay();
+    }
+
+    function appendMsg(type, content, isHtml) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + type;
+      if (isHtml) {
+        div.innerHTML = content;
+      } else if (type === 'user') {
+        div.textContent = content;
+      } else {
+        div.innerHTML = renderMarkdown(content);
+      }
+      chatEl.appendChild(div);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function showTyping(text) {
+      const el = document.createElement('div');
+      el.className = 'typing';
+      el.textContent = text;
+      chatEl.appendChild(el);
+      chatEl.scrollTop = chatEl.scrollHeight;
+      return el;
+    }
+
+    function updateStats(stats, levelStats) {
+      if (stats) {
+        document.getElementById('stat-asked').textContent = stats.asked || 0;
+        document.getElementById('stat-avg').textContent = stats.averageScore ? stats.averageScore + '/10' : '—';
+      }
+      if (levelStats) {
+        document.getElementById('stat-level-avg').textContent = levelStats.averageScore ? levelStats.averageScore + '/10' : '—';
+        document.getElementById('stat-level-count').textContent = `(${levelStats.asked} at L${levelStats.level})`;
+      }
+    }
+
+    function renderMarkdown(text) {
+      return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+        .replace(/<br>(<\/?(?:ul|li)>)/g, '$1')
+        .replace(/(<\/?(?:ul|li)>)<br>/g, '$1')
+        .replace(/^/, '<p>').replace(/$/, '</p>')
+        .replace(/<p><h([123])>/g, '<h$1>').replace(/<\/h([123])><\/p>/g, '</h$1>')
+        .replace(/<p><ul>/g, '<ul>').replace(/<\/ul><\/p>/g, '</ul>')
+        .replace(/<p><\/p>/g, '');
+    }
+
+    function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    async function resetSession() {
+      if (sessionId) {
+        await fetch('/api/train/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        }).catch(() => {});
+      }
+      sessionId = null;
+      awaitingAnswer = false;
+      multiSelectActive = false;
+      currentLevel = 1;
+      levelSelect.value = '1';
+      updateLevelDisplay();
+      inputArea.classList.add('hidden');
+      chatEl.innerHTML = `<div class="welcome">
+        <h2>BABOK® Socratic Training</h2>
+        <p>Progressive complexity — start simple, build deep understanding.</p>
+        <div class="levels-grid">
+          <span class="ln" style="color:#27ae60">Level 1</span><span>Recognition — Pick the one correct option from multiple choice</span>
+          <span class="ln" style="color:#1abc9c">Level 2</span><span>Multi-Select — Select all correct options from a list</span>
+          <span class="ln" style="color:#2ecc71">Level 3</span><span>Understanding — Define or explain in one sentence</span>
+          <span class="ln" style="color:#f39c12">Level 4</span><span>Application — Describe elements, list steps, explain usage</span>
+          <span class="ln" style="color:#e67e22">Level 5</span><span>Analysis — Compare concepts, explain relationships</span>
+          <span class="ln" style="color:#e74c3c">Level 6</span><span>Synthesis — Design a BA approach for a real scenario</span>
+        </div>
+        <p style="margin-top:16px">Select a level and topic, then click <strong>Ask me</strong>.</p>
+        <p style="font-size:12px;color:#999">Score ≥ 7/10 on 3+ questions → level-up suggestion. &lt; 4/10 → level-down suggestion.</p>
+      </div>`;
+      updateStats({ asked: 0, averageScore: null }, null);
+      document.getElementById('stat-level-avg').textContent = '—';
+      document.getElementById('stat-level-count').textContent = '';
+    }
+
+    // ── SETTINGS PANEL ────────────────────────────────────────────────────────
+    let _cfgDefaults = null;  // cache of GET /api/config + /api/prompts
+
+    async function openCfg() {
+      document.getElementById('cfg-overlay').classList.add('open');
+      if (!_cfgDefaults) await loadCfg();
+    }
+    function closeCfg() { document.getElementById('cfg-overlay').classList.remove('open'); }
+    function cfgOverlayClick(e) { if (e.target === document.getElementById('cfg-overlay')) closeCfg(); }
+
+    function switchCfgTab(name, btn) {
+      document.querySelectorAll('.cfg-pane').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.cfg-tab').forEach(b => b.classList.remove('active'));
+      document.getElementById('cfg-tab-' + name).classList.add('active');
+      btn.classList.add('active');
+      if (name === 'levels' && _cfgDefaults) buildLevelPills();
+    }
+
+    async function loadCfg() {
+      try {
+        const [cfgRes, prmtRes] = await Promise.all([fetch('/api/config'), fetch('/api/prompts')]);
+        const cfg  = await cfgRes.json();
+        const prmt = await prmtRes.json();
+        _cfgDefaults = { cfg, prmt };
+        populateCfgUI(cfg, prmt);
+      } catch(e) { console.error('loadCfg failed', e); }
+    }
+
+    function populateCfgUI(cfg, prmt) {
+      // General
+      document.getElementById('cfg-up-threshold').value = cfg.training.autoProgressUpThreshold ?? 7;
+      document.getElementById('cfg-dn-threshold').value = cfg.training.autoProgressDownThreshold ?? 4;
+      // Sync suggest-level checkbox from topic-bar into Settings panel
+      var tbCb = document.getElementById('suggest-level');
+      if (tbCb) document.getElementById('cfg-suggest-level').checked = tbCb.checked;
+      // Server info chips
+      const chips = document.getElementById('cfg-server-chips');
+      chips.innerHTML = [
+        ['Model', cfg.server.chatModel], ['Embedding', cfg.server.embeddingModel],
+        ['Index', cfg.server.indexName], ['Top-K', cfg.server.topK],
+        ['Score threshold', cfg.server.scoreThreshold], ['Port', cfg.server.port],
+      ].map(([k,v]) => '<span class="info-chip"><strong>' + escapeHtml(k) + ':</strong> ' + escapeHtml(String(v)) + '</span>').join('');
+      // Prompts
+      document.getElementById('cfg-sys-prompt').value = prmt.chatSystemPrompt || '';
+      document.getElementById('cfg-topic-c').value    = prmt.topicConstraint || '';
+      document.getElementById('cfg-wa-sys').value     = prmt.wrongAnswerSystemPrompt || '';
+      document.getElementById('cfg-wa-fb').value      = prmt.wrongAnswerFeedback || '';
+      document.getElementById('cfg-sug-up').value     = prmt.levelSuggestionUp || '';
+      document.getElementById('cfg-sug-dn').value     = prmt.levelSuggestionDown || '';
+    }
+
+    // Level pills
+    let _activeLevel = 1;
+    const LEVEL_FULL = {1:'Recognition',2:'Multi-Select',3:'Understanding',4:'Application',5:'Analysis',6:'Synthesis'};
+
+    function buildLevelPills() {
+      const pills = document.getElementById('level-pills');
+      pills.innerHTML = [1,2,3,4,5,6].map(n =>
+        '<button class="lvl-pill' + (n === _activeLevel ? ' active' : '') +
+        '" onclick="selectLvlPill(' + n + ',this)">' + n + ' ' + LEVEL_FULL[n] + '</button>'
+      ).join('');
+      populateLevelCard(_activeLevel);
+    }
+
+    function selectLvlPill(n, btn) {
+      _activeLevel = n;
+      document.querySelectorAll('.lvl-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      populateLevelCard(n);
+    }
+
+    function populateLevelCard(n) {
+      const lvl = _cfgDefaults.cfg.levels[n];
+      const prmt = _cfgDefaults.prmt.levels && _cfgDefaults.prmt.levels[n];
+      document.getElementById('cfg-level-hd').textContent = 'Level ' + n + ' — ' + LEVEL_FULL[n];
+      document.getElementById('cfg-level-max-tokens-q').value = lvl ? lvl.maxTokensQ : '';
+      document.getElementById('cfg-level-max-tokens-e').value = lvl ? lvl.maxTokensE : '';
+      document.getElementById('cfg-level-prompt').value = prmt ? prmt.promptInstruction : (_cfgDefaults.prmt.levels ? '' : '');
+      document.getElementById('cfg-level-eval').value   = prmt ? prmt.evalInstruction   : '';
+      // If level prompt not in prmt.levels, fetch live from /api/prompts (already done)
+      if (!prmt) {
+        // Try full prompts object which includes promptInstruction per level
+        const fullLvl = _cfgDefaults.prmt.levels && _cfgDefaults.prmt.levels[String(n)];
+        document.getElementById('cfg-level-prompt').value = fullLvl ? fullLvl.promptInstruction : '';
+        document.getElementById('cfg-level-eval').value   = fullLvl ? fullLvl.evalInstruction   : '';
+      }
+      document.getElementById('st-lvl').textContent = '';
+    }
+
+    // ── Save helpers ──────────────────────────────────────────────────────────
+    function showStatus(id, ok, msg) {
+      const el = document.getElementById(id);
+      el.className = 'save-st ' + (ok ? 'ok' : 'err');
+      el.textContent = ok ? ('✓ ' + (msg||'Saved')) : ('✗ ' + (msg||'Error'));
+      setTimeout(() => { el.textContent = ''; el.className = 'save-st'; }, 3000);
+    }
+
+    async function postJson(url, body) {
+      const r = await fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      return r.json();
+    }
+
+    // General tab
+    async function saveCfgGeneral() {
+      const up = parseFloat(document.getElementById('cfg-up-threshold').value);
+      const dn = parseFloat(document.getElementById('cfg-dn-threshold').value);
+      if (isNaN(up) || isNaN(dn)) { showStatus('st-general', false, 'Invalid values'); return; }
+      // Sync suggest-level checkbox to topic-bar
+      var cfgCb = document.getElementById('cfg-suggest-level');
+      var tbCb  = document.getElementById('suggest-level');
+      if (cfgCb && tbCb) tbCb.checked = cfgCb.checked;
+      try {
+        await postJson('/api/config', { training: { autoProgressUpThreshold: up, autoProgressDownThreshold: dn } });
+        if (_cfgDefaults) { _cfgDefaults.cfg.training.autoProgressUpThreshold = up; _cfgDefaults.cfg.training.autoProgressDownThreshold = dn; }
+        showStatus('st-general', true);
+      } catch(e) { showStatus('st-general', false); }
+    }
+    function resetCfgGeneral() {
+      document.getElementById('cfg-up-threshold').value = 7;
+      document.getElementById('cfg-dn-threshold').value = 4;
+      document.getElementById('cfg-suggest-level').checked = true;
+      var tbCb = document.getElementById('suggest-level');
+      if (tbCb) tbCb.checked = true;
+    }
+
+    // Single prompt field save/reset
+    async function savePromptField(key, inputId, statusId) {
+      const val = document.getElementById(inputId).value;
+      try {
+        await postJson('/api/prompts', { [key]: val });
+        if (_cfgDefaults) _cfgDefaults.prmt[key] = val;
+        showStatus(statusId, true);
+      } catch(e) { showStatus(statusId, false); }
+    }
+    function resetPromptField(key, inputId, statusId) {
+      const defaults = {
+        chatSystemPrompt: 'You are a Business Analysis expert trained on the BABOK® Guide (Business Analysis Body of Knowledge). You answer questions in a clear, concise, and professional manner, suitable for business analysts preparing for the ECBA, CCBA, or CBAP certification exams. You rely only on the BABOK Guide as your authoritative source. When referencing content, always cite the relevant knowledge area, task, or section. If something is not covered in the BABOK Guide, say so rather than guessing.',
+        topicConstraint: 'Focus your question primarily on "{topic}". You may reference related tasks, techniques, or knowledge areas only when they directly support understanding of this topic — but the question must remain centred on "{topic}"',
+        wrongAnswerSystemPrompt: 'You are a BABOK® exam trainer providing concise feedback on a wrong multiple-choice answer.',
+        wrongAnswerFeedback: 'The student answered incorrectly.\n\n**Question:** {question}\n\n**Options:**\n{options}\n\n**BABOK Reference:**\n{reference}\n\nProvide feedback in this EXACT format:\n\n## ❌ Incorrect\n\n**Overall:** 0/10\n\n**Why {selected}) is wrong:** [1-2 sentences]\n\n**Why {correct}) is correct:** [1-2 sentences based on BABOK]\n\n**Other options briefly:**\n- [One sentence per remaining option explaining why it is right or wrong]',
+        levelSuggestionUp: 'Great progress! Your average at Level {level} is {avg}/10. Ready to move up to Level {next} ({nextName})?',
+        levelSuggestionDown: 'Level {level} seems challenging (avg {avg}/10). Consider practicing at Level {prev} ({prevName}) to build a stronger foundation.',
+      };
+      if (defaults[key]) document.getElementById(inputId).value = defaults[key];
+      document.getElementById(statusId).textContent = 'Reset (not yet saved)';
+      setTimeout(() => { document.getElementById(statusId).textContent = ''; }, 2500);
+    }
+
+    async function saveWrongAnswerPrompts() {
+      const sys = document.getElementById('cfg-wa-sys').value;
+      const fb  = document.getElementById('cfg-wa-fb').value;
+      try {
+        await postJson('/api/prompts', { wrongAnswerSystemPrompt: sys, wrongAnswerFeedback: fb });
+        if (_cfgDefaults) { _cfgDefaults.prmt.wrongAnswerSystemPrompt = sys; _cfgDefaults.prmt.wrongAnswerFeedback = fb; }
+        showStatus('st-wa', true);
+      } catch(e) { showStatus('st-wa', false); }
+    }
+    function resetWrongAnswerPrompts() {
+      document.getElementById('cfg-wa-sys').value = 'You are a BABOK® exam trainer providing concise feedback on a wrong multiple-choice answer.';
+      document.getElementById('cfg-wa-fb').value = 'The student answered incorrectly.\n\n**Question:** {question}\n\n**Options:**\n{options}\n\n**BABOK Reference:**\n{reference}\n\nProvide feedback in this EXACT format:\n\n## ❌ Incorrect\n\n**Overall:** 0/10\n\n**Why {selected}) is wrong:** [1-2 sentences]\n\n**Why {correct}) is correct:** [1-2 sentences based on BABOK]\n\n**Other options briefly:**\n- [One sentence per remaining option explaining why it is right or wrong]';
+      document.getElementById('st-wa').textContent = 'Reset (not yet saved)';
+      setTimeout(() => { document.getElementById('st-wa').textContent = ''; }, 2500);
+    }
+
+    async function saveSuggestions() {
+      const up = document.getElementById('cfg-sug-up').value;
+      const dn = document.getElementById('cfg-sug-dn').value;
+      try {
+        await postJson('/api/prompts', { levelSuggestionUp: up, levelSuggestionDown: dn });
+        if (_cfgDefaults) { _cfgDefaults.prmt.levelSuggestionUp = up; _cfgDefaults.prmt.levelSuggestionDown = dn; }
+        showStatus('st-sug', true);
+      } catch(e) { showStatus('st-sug', false); }
+    }
+    function resetSuggestions() {
+      document.getElementById('cfg-sug-up').value = 'Great progress! Your average at Level {level} is {avg}/10. Ready to move up to Level {next} ({nextName})?';
+      document.getElementById('cfg-sug-dn').value = 'Level {level} seems challenging (avg {avg}/10). Consider practicing at Level {prev} ({prevName}) to build a stronger foundation.';
+      document.getElementById('st-sug').textContent = 'Reset (not yet saved)';
+      setTimeout(() => { document.getElementById('st-sug').textContent = ''; }, 2500);
+    }
+
+    // Level tab
+    async function saveLevelCfg() {
+      const n = _activeLevel;
+      const maxtq = parseInt(document.getElementById('cfg-level-max-tokens-q').value, 10);
+      const maxte = parseInt(document.getElementById('cfg-level-max-tokens-e').value, 10);
+      const promptInstruction = document.getElementById('cfg-level-prompt').value;
+      const evalInstruction   = document.getElementById('cfg-level-eval').value;
+      try {
+        await Promise.all([
+          postJson('/api/config',  { levels: { [n]: { maxTokensQ: maxtq, maxTokensE: maxte } } }),
+          postJson('/api/prompts', { levels: { [n]: { promptInstruction, evalInstruction } } }),
+        ]);
+        if (_cfgDefaults) {
+          _cfgDefaults.cfg.levels[n] = Object.assign(_cfgDefaults.cfg.levels[n] || {}, { maxTokensQ: maxtq, maxTokensE: maxte });
+          if (!_cfgDefaults.prmt.levels) _cfgDefaults.prmt.levels = {};
+          _cfgDefaults.prmt.levels[n] = { promptInstruction, evalInstruction };
+        }
+        showStatus('st-lvl', true, 'Level ' + n + ' saved');
+      } catch(e) { showStatus('st-lvl', false); }
+    }
+    function resetLevelCfg() {
+      document.getElementById('cfg-level-prompt').value = '';
+      document.getElementById('cfg-level-eval').value = '';
+      document.getElementById('st-lvl').textContent = 'Cleared (not yet saved)';
+      setTimeout(() => { document.getElementById('st-lvl').textContent = ''; }, 2500);
+    }
+
+    // Initialize display
+    updateLevelDisplay();
+  </script>
+
+  <!-- Settings modal -->
+  <div class="cfg-overlay" id="cfg-overlay" onclick="cfgOverlayClick(event)">
+    <div class="cfg-panel" id="cfg-panel">
+      <div class="cfg-head">
+        <span style="font-size:20px">🤖</span>
+        <h2>Trainer Settings</h2>
+        <button class="cfg-close" onclick="closeCfg()" aria-label="Close">×</button>
+      </div>
+      <div class="cfg-tabs">
+        <button class="cfg-tab active" onclick="switchCfgTab('general',this)">General</button>
+        <button class="cfg-tab" onclick="switchCfgTab('prompts',this)">Prompts</button>
+        <button class="cfg-tab" onclick="switchCfgTab('levels',this)">Levels</button>
+      </div>
+      <div class="cfg-body">
+
+        <!-- GENERAL TAB -->
+        <div class="cfg-pane active" id="cfg-tab-general">
+          <div class="cfg-card">
+            <div class="cfg-card-hd">🎚️ Training Thresholds</div>
+            <div class="cfg-card-bd">
+              <p style="font-size:12px;color:#666;margin:0">When enough questions answered at a level, suggest moving up or down.</p>
+              <div class="cfg-row">
+                <div class="cfg-field">
+                  <label for="cfg-up-threshold">Level-up score (≥)</label>
+                  <input type="number" id="cfg-up-threshold" min="1" max="10" step="0.5" placeholder="7">
+                  <span class="hint">Avg score out of 10</span>
+                </div>
+                <div class="cfg-field">
+                  <label for="cfg-dn-threshold">Level-down score (&lt;)</label>
+                  <input type="number" id="cfg-dn-threshold" min="1" max="10" step="0.5" placeholder="4">
+                  <span class="hint">Avg score out of 10</span>
+                </div>
+              </div>
+              <div class="cfg-row" style="margin-top:4px">
+                <div class="cfg-field" style="flex-direction:row;align-items:center;gap:8px;flex:unset">
+                  <input type="checkbox" id="cfg-suggest-level" style="width:16px;height:16px;cursor:pointer;accent-color:#0d3b66" checked title="Mirror of the topic-bar checkbox">
+                  <label for="cfg-suggest-level" style="font-size:13px;font-weight:600;color:#444;cursor:pointer">Enable level-change suggestions</label>
+                </div>
+              </div>
+            </div>
+            <div class="cfg-card-ft">
+              <button class="btn-save" onclick="saveCfgGeneral()">Save</button>
+              <button class="btn-def" onclick="resetCfgGeneral()">Reset defaults</button>
+              <span class="save-st" id="st-general"></span>
+            </div>
+          </div>
+          <div class="cfg-card">
+            <div class="cfg-card-hd">ℹ️ Server Info <span style="font-weight:400;font-size:12px;color:#888">(read‑only)</span></div>
+            <div class="cfg-card-bd">
+              <div class="info-chips" id="cfg-server-chips"><span style="font-size:12px;color:#aaa">Loading…</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROMPTS TAB -->
+        <div class="cfg-pane" id="cfg-tab-prompts">
+          <div class="cfg-card">
+            <div class="cfg-card-hd">System Prompt</div>
+            <div class="cfg-card-bd">
+              <div class="cfg-field">
+                <label for="cfg-sys-prompt">Chat mode system prompt</label>
+                <textarea id="cfg-sys-prompt" rows="5"></textarea>
+              </div>
+            </div>
+            <div class="cfg-card-ft">
+              <button class="btn-save" onclick="savePromptField('chatSystemPrompt','cfg-sys-prompt','st-sys')">Save</button>
+              <button class="btn-def" onclick="resetPromptField('chatSystemPrompt','cfg-sys-prompt','st-sys')">Reset</button>
+              <span class="save-st" id="st-sys"></span>
+            </div>
+          </div>
+          <div class="cfg-card">
+            <div class="cfg-card-hd">Topic Constraint</div>
+            <div class="cfg-card-bd">
+              <div class="cfg-field">
+                <label for="cfg-topic-c">Injected when a specific topic is pinned</label>
+                <textarea id="cfg-topic-c" rows="3"></textarea>
+                <span class="hint">Use <code>{topic}</code> placeholder.</span>
+              </div>
+            </div>
+            <div class="cfg-card-ft">
+              <button class="btn-save" onclick="savePromptField('topicConstraint','cfg-topic-c','st-tpc')">Save</button>
+              <button class="btn-def" onclick="resetPromptField('topicConstraint','cfg-topic-c','st-tpc')">Reset</button>
+              <span class="save-st" id="st-tpc"></span>
+            </div>
+          </div>
+          <div class="cfg-card">
+            <div class="cfg-card-hd">Wrong Answer Feedback</div>
+            <div class="cfg-card-bd">
+              <div class="cfg-field">
+                <label for="cfg-wa-sys">System role instruction</label>
+                <textarea id="cfg-wa-sys" rows="2"></textarea>
+              </div>
+              <div class="cfg-field">
+                <label for="cfg-wa-fb">Feedback template</label>
+                <textarea id="cfg-wa-fb" rows="6"></textarea>
+                <span class="hint">Placeholders: <code>{question}</code> <code>{options}</code> <code>{reference}</code> <code>{selected}</code> <code>{correct}</code></span>
+              </div>
+            </div>
+            <div class="cfg-card-ft">
+              <button class="btn-save" onclick="saveWrongAnswerPrompts()">Save</button>
+              <button class="btn-def" onclick="resetWrongAnswerPrompts()">Reset</button>
+              <span class="save-st" id="st-wa"></span>
+            </div>
+          </div>
+          <div class="cfg-card">
+            <div class="cfg-card-hd">Level Suggestion Messages</div>
+            <div class="cfg-card-bd">
+              <div class="cfg-field">
+                <label for="cfg-sug-up">Level-up suggestion</label>
+                <textarea id="cfg-sug-up" rows="2"></textarea>
+                <span class="hint">Placeholders: <code>{level}</code> <code>{avg}</code> <code>{next}</code> <code>{nextName}</code></span>
+              </div>
+              <div class="cfg-field">
+                <label for="cfg-sug-dn">Level-down suggestion</label>
+                <textarea id="cfg-sug-dn" rows="2"></textarea>
+                <span class="hint">Placeholders: <code>{level}</code> <code>{avg}</code> <code>{prev}</code> <code>{prevName}</code></span>
+              </div>
+            </div>
+            <div class="cfg-card-ft">
+              <button class="btn-save" onclick="saveSuggestions()">Save</button>
+              <button class="btn-def" onclick="resetSuggestions()">Reset</button>
+              <span class="save-st" id="st-sug"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- LEVELS TAB -->
+        <div class="cfg-pane" id="cfg-tab-levels">
+          <div class="lvl-pills" id="level-pills"></div>
+          <div class="cfg-card" id="cfg-level-card">
+            <div class="cfg-card-hd" id="cfg-level-hd">Level 1 — Recognition</div>
+            <div class="cfg-card-bd">
+              <div class="cfg-row">
+                <div class="cfg-field">
+                  <label for="cfg-level-max-tokens-q">Max tokens (question)</label>
+                  <input type="number" id="cfg-level-max-tokens-q" min="100" max="2000" step="50">
+                </div>
+                <div class="cfg-field">
+                  <label for="cfg-level-max-tokens-e">Max tokens (eval)</label>
+                  <input type="number" id="cfg-level-max-tokens-e" min="100" max="2000" step="50">
+                </div>
+              </div>
+              <div class="cfg-field">
+                <label for="cfg-level-prompt">promptInstruction</label>
+                <textarea id="cfg-level-prompt" rows="7"></textarea>
+                <span class="hint">Sent to GPT to generate the question.</span>
+              </div>
+              <div class="cfg-field">
+                <label for="cfg-level-eval">evalInstruction</label>
+                <textarea id="cfg-level-eval" rows="5"></textarea>
+                <span class="hint">Sent to GPT to evaluate the answer.</span>
+              </div>
+            </div>
+            <div class="cfg-card-ft">
+              <button class="btn-save" onclick="saveLevelCfg()">Save Level</button>
+              <button class="btn-def" onclick="resetLevelCfg()">Reset defaults</button>
+              <span class="save-st" id="st-lvl"></span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- cfg-body -->
+    </div><!-- cfg-panel -->
+  </div><!-- cfg-overlay -->
+
+  <!-- Mobile fixed bottom action bar -->
+  <div class="mobile-bar">
+    <button id="ask-btn-mobile" onclick="askQuestion()">Ask me</button>
+    <button class="mob-reset" onclick="resetSession()">Reset</button>
+    <button class="mob-icon-btn" id="stats-toggle-btn" onclick="toggleMobilePanel('stats')" title="Stats">📊</button>
+    <button class="mob-icon-btn" id="topic-toggle-btn" onclick="toggleMobilePanel('topic')" title="Settings">⚙️</button>
+  </div>
+  <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeAllMobilePanels()"></div>
+</body>
+</html>

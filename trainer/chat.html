@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BABOK Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; height: 100vh; display: flex; flex-direction: column; }
+    header { background: #1a1a2e; color: #fff; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+    header h1 { font-size: 18px; font-weight: 600; }
+    header .badge { background: #e94560; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+    #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+    .msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; line-height: 1.5; font-size: 14px; }
+    .msg.user { align-self: flex-end; background: #1a1a2e; color: #fff; border-bottom-right-radius: 4px; }
+    .msg.assistant { align-self: flex-start; background: #fff; color: #333; border-bottom-left-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .msg.assistant h1, .msg.assistant h2, .msg.assistant h3 { font-size: 15px; margin: 8px 0 4px; }
+    .msg.assistant ul, .msg.assistant ol { margin: 4px 0 4px 20px; }
+    .msg.assistant li { margin: 2px 0; }
+    .msg.assistant strong { color: #1a1a2e; }
+    .msg.assistant code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 13px; }
+    .msg.assistant p { margin: 6px 0; }
+    .sources { font-size: 11px; color: #888; margin-top: 8px; border-top: 1px solid #eee; padding-top: 6px; }
+    .sources span { display: inline-block; background: #f0f0f0; padding: 1px 6px; border-radius: 8px; margin: 2px 2px; }
+    .typing { align-self: flex-start; color: #999; font-style: italic; font-size: 13px; padding: 8px 16px; }
+    #input-area { padding: 12px 20px; background: #fff; border-top: 1px solid #e0e0e0; display: flex; gap: 8px; }
+    #input-area textarea { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; font-family: inherit; resize: none; outline: none; min-height: 44px; max-height: 120px; }
+    #input-area textarea:focus { border-color: #1a1a2e; }
+    #input-area button { background: #1a1a2e; color: #fff; border: none; border-radius: 8px; padding: 0 20px; font-size: 14px; cursor: pointer; white-space: nowrap; }
+    #input-area button:hover { background: #16213e; }
+    #input-area button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .actions { display: flex; gap: 8px; align-items: center; }
+    .actions button.secondary { background: transparent; color: #888; border: 1px solid #ddd; border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer; }
+    .actions button.secondary:hover { background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BABOK® Chat</h1>
+    <span class="badge">RAG</span>
+    <a href="/train" class="secondary nav-link">→ Go to train</a>
+    <div style="flex:1"></div>
+    <div class="actions">
+      <button class="secondary" onclick="resetChat()">New Chat</button>
+    </div>
+  </header>
+
+  <div id="chat">
+    <div class="msg assistant">
+      <p>Welcome! Ask me anything about the <strong>BABOK® Guide</strong> — business analysis tasks, techniques, knowledge areas, perspectives, and more.</p>
+    </div>
+  </div>
+
+  <div id="input-area">
+    <textarea id="question" rows="1" placeholder="Ask about BABOK..." autofocus></textarea>
+    <button id="send-btn" onclick="sendMessage()">Send</button>
+  </div>
+
+  <script>
+    let sessionId = null;
+    const chatEl = document.getElementById('chat');
+    const questionEl = document.getElementById('question');
+    const sendBtn = document.getElementById('send-btn');
+
+    // Auto-grow textarea
+    questionEl.addEventListener('input', () => {
+      questionEl.style.height = 'auto';
+      questionEl.style.height = Math.min(questionEl.scrollHeight, 120) + 'px';
+    });
+
+    // Enter to send (Shift+Enter for newline)
+    questionEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    async function sendMessage() {
+      const text = questionEl.value.trim();
+      if (!text) return;
+
+      // Show user message
+      appendMessage('user', text);
+      questionEl.value = '';
+      questionEl.style.height = 'auto';
+      sendBtn.disabled = true;
+
+      // Show typing indicator
+      const typingEl = document.createElement('div');
+      typingEl.className = 'typing';
+      typingEl.textContent = 'Searching BABOK and generating answer...';
+      chatEl.appendChild(typingEl);
+      chatEl.scrollTop = chatEl.scrollHeight;
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text, sessionId }),
+        });
+
+        const data = await res.json();
+        typingEl.remove();
+
+        if (!res.ok) {
+          appendMessage('assistant', 'Error: ' + (data.error || 'Something went wrong'));
+          return;
+        }
+
+        sessionId = data.sessionId;
+        appendMessage('assistant', data.answer, data.sources);
+      } catch (err) {
+        typingEl.remove();
+        appendMessage('assistant', 'Connection error. Is the server running?');
+      } finally {
+        sendBtn.disabled = false;
+        questionEl.focus();
+      }
+    }
+
+    function appendMessage(role, text, sources) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+
+      if (role === 'assistant') {
+        div.innerHTML = renderMarkdown(text);
+        if (sources && sources.length) {
+          const srcDiv = document.createElement('div');
+          srcDiv.className = 'sources';
+          srcDiv.innerHTML = 'Sources: ' + sources.map(s =>
+            '<span title="' + escapeAttr(s.id) + '">' + escapeHtml(s.label) + ' (' + s.score.toFixed(2) + ')</span>'
+          ).join(' ');
+          div.appendChild(srcDiv);
+        }
+      } else {
+        div.textContent = text;
+      }
+
+      chatEl.appendChild(div);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    function renderMarkdown(text) {
+      // Simple markdown rendering for chat
+      return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>')
+        .replace(/\n{2,}/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+        .replace(/^/, '<p>').replace(/$/, '</p>')
+        .replace(/<p><h([123])>/g, '<h$1>').replace(/<\/h([123])><\/p>/g, '</h$1>')
+        .replace(/<p><ul>/g, '<ul>').replace(/<\/ul><\/p>/g, '</ul>')
+        .replace(/<p><\/p>/g, '');
+    }
+
+    function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    function escapeAttr(s) { return s.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    async function resetChat() {
+      if (sessionId) {
+        await fetch('/api/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId }),
+        }).catch(() => {});
+      }
+      sessionId = null;
+      chatEl.innerHTML = '<div class="msg assistant"><p>Welcome! Ask me anything about the <strong>BABOK® Guide</strong>.</p></div>';
+      questionEl.focus();
+    }
+  </script>
+</body>
+</html>

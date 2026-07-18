@@ -1,0 +1,99 @@
+Phase 1 — Generic foundation (1–2 weeks)
+  1. Configurable prompts in UI       → learn what matters in prompts
+  2. Topic taxonomy from JSON config  → decouple from BABOK
+  3. Multiple named indexes           → understand multi-source pattern
+
+Phase 2 — Content pipeline (2–3 weeks)
+  4. File/PDF upload + chunking       → validate the upload UX
+  5. KB management UI                 → learn what users actually delete/keep
+  6. Custom TOC from headings         → validate topic structure UX
+
+Phase 3 — Learning intelligence (2–3 weeks)
+  7. Session persistence (SQLite)     → foundation for everything below
+  8. Weak topic detection             → first "smart" feature
+  9. Generic UI labels                → ready for other domains
+
+Phase 4 — Multi-user (after validation)
+  10. User accounts                   → only if sharing with others
+  11. Spaced repetition               → biggest UX upgrade
+  12. URL ingestion                   → nice to have
+
+
+
+  Tier 1 — High Impact, Low Complexity (do first, learn fast)
+1. Configurable trainer instructions in UI (1–2 days)
+
+Add a settings panel where user edits the system prompt and per-level promptInstruction text
+Store in localStorage on the client, send with each request
+Why first: Immediately useful, no backend changes, teaches you what prompt variables actually matter
+2. Generic topic taxonomy (remove BABOK hardcoding) (1 day)
+
+Move the chapter/task list out of HTML into a JSON config file loaded at startup
+Topic dropdown reads from config, not hardcoded <option> tags
+Why: Foundation everything else builds on. Low risk, high payoff.
+
+3. Multiple named indexes / "knowledge bases" (2–3 days)
+
+Let user switch between indexes (e.g. ba-training-large, scrum-guide, my-book)
+Dropdown in settings: select active knowledge base
+Server reads indexName from request, not CONFIG constant
+Why: Unlocks multi-source use without rebuilding upload pipeline yet
+
+Tier 2 — High Impact, Medium Complexity (do after Tier 1)
+4. File/PDF upload → auto-chunk → upload to Pinecone (3–5 days)
+
+Upload form: drag-drop PDF, EPUB, TXT, or paste URL
+Server: extract text (pdf-parse, cheerio for URLs) → split into chunks → embed → upsert to named namespace/index
+Progress feedback in UI
+Why: This is the core "use with any book" feature. Do it after you have multi-index support so new content goes to the right place.
+5. Knowledge base management UI (2 days)
+
+List all indexes/namespaces with chunk count and creation date
+Delete button (Pinecone deleteAll on namespace)
+Rename / describe
+Why: Low complexity, high UX value — you need to manage what you created
+
+6. Custom table of contents / topic structure (2–3 days)
+
+After upload, show detected headings → let user confirm/edit the hierarchy
+These become the topic dropdown entries
+Store as JSON alongside the index metadata
+Why: Replaces the current hardcoded BABOK structure cleanly
+Tier 3 — Medium Impact, Medium Complexity (direction-setting)
+7. Session persistence (2–3 days)
+
+Store session history (questions asked, scores, level, topic) in SQLite or a JSON file
+Resume session on page reload
+Show history: questions asked, wrong answers, weak topics
+Why: Right now all progress is lost on refresh — critical for real learning
+
+8. Weak topic detection (1–2 days on top of #7)
+
+Track score per topic/chunk across sessions
+Show "topics to review" sorted by lowest average score
+Why: Turns the trainer from random quiz into adaptive learning
+9. Configurable UI labels (context-free mode) (1 day)
+
+All hardcoded text ("BABOK® Training", "Knowledge Area Tasks", level names) come from a config JSON
+User edits in settings panel
+Default config is generic ("Study Trainer", "Chapters", etc.)
+Why: Makes the app genuinely re-usable for any domain
+
+Tier 4 — High Complexity, Strategic (build after you have users/feedback)
+10. User accounts + per-user content (5–10 days)
+
+Auth: simplest viable = username + password, JWT, no OAuth needed initially
+Each user has their own namespaces in Pinecone (prefix with userId)
+Session data scoped to user
+Why: Only worth building once the core trainer loop is validated. Auth always takes longer than expected.
+11. Link/URL ingestion (2–3 days)
+
+Paste a URL → server fetches, extracts article/doc text, chunks it
+Handle JS-rendered pages (Playwright headless) vs static (cheerio)
+Why: More complex than file upload due to web crawling edge cases
+
+12. Spaced repetition scheduling (3–5 days)
+
+Instead of random chunk selection, use SM-2 or Leitner algorithm
+Cards due for review surface first
+Why: Biggest learning science impact, but needs session persistence (#7) first

@@ -1,0 +1,8 @@
+{
+  "name": "socratic-trainer",
+  "scripts": {
+    "chunk": "node chunker/chunker.js",
+    "upload": "node trainer/pinecone-upload.js",
+    "start": "node trainer/server.js"
+  }
+}

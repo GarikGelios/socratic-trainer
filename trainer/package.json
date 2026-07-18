@@ -1,0 +1,18 @@
+{
+  "name": "babok-trainer",
+  "version": "1.0.0",
+  "description": "RAG training pipeline: uploads BABOK chunks to Pinecone and serves a local chat/train UI.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "upload": "node pinecone-upload.js",
+    "query": "node pinecone-query.js",
+    "test": "node pinecone-test.js"
+  },
+  "dependencies": {
+    "@pinecone-database/pinecone": "^7.1.0",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "openai": "^6.31.0"
+  }
+}

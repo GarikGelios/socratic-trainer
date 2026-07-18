@@ -1,0 +1,91 @@
+{
+  "_comment": "Override trainer defaults. All fields are optional — missing fields fall back to server.js defaults.",
+  "server": {
+    "port": 3000,
+    "indexName": "babok-guide",
+    "embeddingModel": "text-embedding-3-small",
+    "chatModel": "gpt-4.1-mini",
+    "topK": 6,
+    "scoreThreshold": 0.35,
+    "maxHistoryMessages": 6
+  },
+  "training": {
+    "autoProgressUpThreshold": 7,
+    "autoProgressDownThreshold": 4
+  },
+  "levels": {
+    "1": {
+      "name": "Knowledge",
+      "maxTokensQ": 400,
+      "maxTokensE": 350
+    },
+    "2": {
+      "name": "Comprehension",
+      "maxTokensQ": 600,
+      "maxTokensE": 500
+    },
+    "3": {
+      "name": "Application",
+      "maxTokensQ": 500,
+      "maxTokensE": 400
+    },
+    "4": {
+      "name": "Analysis",
+      "maxTokensQ": 600,
+      "maxTokensE": 500
+    },
+    "5": {
+      "name": "Synthesis",
+      "maxTokensQ": 700,
+      "maxTokensE": 600
+    },
+    "6": {
+      "name": "Evaluation",
+      "maxTokensQ": 700,
+      "maxTokensE": 600
+    }
+  },
+  "aspects": [
+    {
+      "key": "purpose",
+      "instruction": "Ask about the PURPOSE or primary objective of this task."
+    },
+    {
+      "key": "elements",
+      "instruction": "Ask about the KEY ELEMENTS or components described for this task."
+    },
+    {
+      "key": "techniques",
+      "instruction": "Ask about the TECHNIQUES used or recommended for this task."
+    },
+    {
+      "key": "inputs",
+      "instruction": "Ask about the INPUTS required by this task and where they come from."
+    },
+    {
+      "key": "outputs",
+      "instruction": "Ask about the OUTPUTS produced by this task and how they are used."
+    },
+    {
+      "key": "stakeholders",
+      "instruction": "Ask about the STAKEHOLDERS involved in or affected by this task and their roles."
+    },
+    {
+      "key": "application",
+      "instruction": "Ask about a practical situation where this task would be applied or how it is performed."
+    }
+  ],
+  "chunkCategoryLabels": {
+    "task": "Knowledge Area Task",
+    "technique": "Technique",
+    "glossary_term": "Glossary Term",
+    "key_term": "Key Term",
+    "stakeholder_role": "Stakeholder Role",
+    "conceptual_framework": "Core Concept",
+    "classification_schema": "Classification",
+    "conceptual_explanation": "Concept",
+    "perspective_section": "Perspective",
+    "perspective_impact": "Perspective Impact",
+    "perspective_table": "Perspective Table"
+  }
+}
