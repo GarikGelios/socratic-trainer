@@ -1,3 +1,5 @@
 node_modules/
 .env
 trainer/embeddings-cache.json
+chunker/package-lock.json
+chunker/package-lock.json
