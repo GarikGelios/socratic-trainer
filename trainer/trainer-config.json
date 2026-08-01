@@ -2,12 +2,12 @@
   "_comment": "Override trainer defaults. All fields are optional — missing fields fall back to server.js defaults.",
   "server": {
     "port": 3000,
-    "indexName": "babok-guide",
-    "embeddingModel": "text-embedding-3-small",
+    "indexName": "ba-training-large",
+    "embeddingModel": "text-embedding-3-large",
     "chatModel": "gpt-4.1-mini",
-    "topK": 6,
-    "scoreThreshold": 0.35,
-    "maxHistoryMessages": 6
+    "topK": 5,
+    "scoreThreshold": 0.3,
+    "maxHistoryMessages": 20
   },
   "training": {
     "autoProgressUpThreshold": 7,
@@ -16,33 +16,33 @@
   "levels": {
     "1": {
       "name": "Knowledge",
-      "maxTokensQ": 400,
-      "maxTokensE": 350
+      "maxTokensQ": 350,
+      "maxTokensE": 400
     },
     "2": {
-      "name": "Comprehension",
-      "maxTokensQ": 600,
+      "name": "Multi-Select",
+      "maxTokensQ": 700,
       "maxTokensE": 500
     },
     "3": {
-      "name": "Application",
-      "maxTokensQ": 500,
-      "maxTokensE": 400
+      "name": "Understanding",
+      "maxTokensQ": 200,
+      "maxTokensE": 300
     },
     "4": {
-      "name": "Analysis",
-      "maxTokensQ": 600,
-      "maxTokensE": 500
+      "name": "Application",
+      "maxTokensQ": 200,
+      "maxTokensE": 1200
     },
     "5": {
-      "name": "Synthesis",
-      "maxTokensQ": 700,
-      "maxTokensE": 600
+      "name": "Analysis",
+      "maxTokensQ": 250,
+      "maxTokensE": 1500
     },
     "6": {
-      "name": "Evaluation",
-      "maxTokensQ": 700,
-      "maxTokensE": 600
+      "name": "Synthesis",
+      "maxTokensQ": 350,
+      "maxTokensE": 2000
     }
   },
   "aspects": [

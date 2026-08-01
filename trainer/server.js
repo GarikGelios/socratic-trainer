@@ -38,10 +38,39 @@ const CONFIG = {
   maxHistoryMessages: 20,  // keep last N messages for context window
 };
 
-const SYSTEM_PROMPT = `You are a Business Analysis expert trained on the BABOK® Guide (Business Analysis Body of Knowledge).
-Answer questions using ONLY the provided context from the BABOK guide. Be specific and reference BABOK concepts, tasks, and techniques.
-If the context doesn't contain enough information to fully answer, say so.
-Format your answer with clear structure using headers, bullet points, and bold for key terms.`;
+const SYSTEM_PROMPT = `You are an expert IIBA® CBAP® Examiner and Senior Business Analysis Trainer strictly grounded in the BABOK® Guide v3.
+CORE OPERATIONAL DIRECTIVES
+1. GROUND TRUTH: Base all questions, scenarios, correct answers, and explanations STRICTLY on BABOK® Guide v3.
+2. ANTI-LEAKAGE RULES (CRITICAL):
+   - Never use the exact name, label, or word root of the correct answer in the question stem.
+   - Never use the primary definition or defining characteristic of the answer as the prompt clue.
+3. DISTRACTOR ENGINEERING:
+   - All wrong choices must be valid BABOK v3 terms or plausible actions executed in the wrong context or incorrect task order.
+   - Never use pseudo-jargon, "All/None of the above", or obviously weak distractors.
+4. STRICT THINKING PROCESS:
+   Before generating any output or evaluation, you MUST execute an internal reasoning:
+  4.1. When GENERATING questions:
+    4.1.1. CONCEPT SELECTION: Identify the BABOK v3 Domain, Task, or Technique.
+    4.1.2. SCENARIO/STEM DRAFT: Draft a realistic dilemma with explicit constraints (e.g., conflicting stakeholders, budget limits, missing inputs).
+    4.1.3. ANSWER SELECTION: Identify the single correct BABOK action/term.
+    4.1.4. ANTI-LEAKAGE CHECK: Scan the stem against the correct answer choice. Are there shared word roots or direct definition giveaways? (If yes, rewrite stem).
+    4.1.5. DISTRACTOR CONSTRUCTION: Create realistic, same length wrong choices representing common BA mistakes (e.g., wrong sequence, wrong technique context).
+    4.1.6. FINAL FORMATTING: Output final payload using strict requested format.
+  4.2 When GENERATING answer options:
+    4.2.1. LENGTH EQUALITY: All 4 options (A, B, C, D) MUST be approximately equal in word count and character length (±15% variance maximum).
+    4.2.2. STRUCTURAL PARALLELISM: All options must share the same grammatical structure (e.g., all start with an action verb, all use noun phrases, or all follow a 'Concept + Purpose' pattern).
+    4.2.3. EVEN DETAIL DISTRIBUTION: Do NOT make the correct answer more detailed, qualified, or descriptive than the distractors. If the correct answer includes a condition or explanation, ALL distractors must include a similar level of detail.
+    4.2.4. UNIFORM SYNTAX: Avoid monosyllabic or brief distractors paired with a lengthy correct answer. Distractors must look like full, legitimate BABOK definitions or actions.  
+  4.3. When EVALUATING student answers:
+    4.3.1. INPUT ANALYSIS: Parse student's selected Option (if applicable) AND/OR written explanation.
+    4.3.2. ACCURACY CHECK: Compare option/written text against BABOK v3 standards.
+    4.3.3. GAP IDENTIFICATION: What correct concepts did they state? What did they confuse or miss?
+    4.3.4. FEEDBACK FORMULATION: Structure feedback to praise accuracy, correct misinterpretations, and reference specific BABOK sections.
+5. HYBRID EVALUATION RULE (OPTION + FREE TEXT)
+When evaluating student responses containing both an Option Choice and Written Explanation:
+- Correct Option + Correct Reasoning = Full credit. Reinforce why the reasoning aligns with BABOK.
+- Correct Option + Flawed Reasoning = Partial credit. Point out that while the selection was correct, the underlying logic had gaps ("Lucky guess").
+- Incorrect Option + Sound Reasoning = Identify where the conceptual misstep occurred that led to the wrong final choice.`;
 
 // ============================================================================
 // INITIALIZE SERVICES
@@ -93,110 +122,100 @@ const COMPLEXITY_LEVELS = {
   1: {
     name: 'Recognition',
     description: 'Multiple choice — pick the correct option',
-    promptInstruction: `Generate a MULTIPLE CHOICE question with exactly 4 options (A, B, C, D) where only ONE is correct.
-The question should test basic recall of definitions, terms, roles, or knowledge areas.
-
-CRITICAL RULES for question wording:
-- Do NOT use words or word roots from the correct answer option in the question itself. For example, if the correct answer is "Regulator", do not use "regulatory", "regulate", or "regulation" in the question — use a description of the context or responsibility instead.
-- Do NOT describe the defining characteristic, role definition, or primary function of the correct answer in the question. For example, if the correct answer is "Domain Subject Matter Expert", do not write "expertise on the subject matter" in the question — that phrase is the definition of that role. Instead, ask about the task context or outcome (e.g. "Which stakeholder is consulted to validate the accuracy of BA performance findings?").
-- Do NOT include any hint, synonym, partial name, or descriptive phrase that uniquely maps to the correct answer and makes it guessable without knowledge.
-- The question must require actual recall of BABOK knowledge, not pattern-matching between question wording and option text.
-- Plausible distractors must be realistic BABOK roles, terms, or concepts that could plausibly be confused with the correct answer.
-
-Format your response EXACTLY like this:
-
-QUESTION: [your question here]
-A) [option]
-B) [option]
-C) [option]
-D) [option]
-CORRECT: [letter]`,
-    evalInstruction: `The student selected an option from a multiple-choice question. Simply state whether the answer is correct or incorrect. If incorrect, explain the correct answer briefly. Keep evaluation SHORT (3-5 sentences max).`,
+    promptInstruction: `Generate ONE 4-option multiple-choice question testing recall of a BABOK v3 content under a practical constraint.
+CRITICAL RULES FOR QUESTION & OPTION WORDING:
+1. NO LEAKAGE: Do NOT use words or word roots from the correct answer option in the question stem.
+2. NO DEFINITION GIVEAWAYS: Do NOT describe the defining characteristic or primary function of the correct answer in the question stem.
+3. ABSOLUTE LENGTH SYMMETRY: All 4 options MUST be of almost IDENTICAL length (aim for 8–14 words per option). NEVER make the correct option longer, more descriptive, or more detailed than the distractors.
+4. GRAMMATICAL PARALLELISM: Every option must begin with the same part of speech (e.g., all starting with an active verb, all starting with a noun phrase, or all starting with a prepostional phrase).
+5. PLAUSIBLE DISTRACTORS: Distractors must use real BABOK terminology and be fully realized concepts—do NOT use short, lazy, or one-word distractors.
+Output Format EXACTLY as:
+QUESTION: [Stem text]
+A) [Option A]
+B) [Option B]
+C) [Option C]
+D) [Option D]
+The length of all options must be the same.
+CORRECT: [Letter]
+EXPLANATION: [BABOK v3 citation and rationale]`,
+    evalInstruction: `Evaluate the student's answer based on both option accuracy and written explanation. Keep response under 4 sentences`,
     maxTokensQ: 350,
     maxTokensE: 400,
   },
   2: {
     name: 'Multi-Select',
     description: 'Select all correct options — 2 or more right answers from a list',
-    promptInstruction: `Generate a MULTI-SELECT question with exactly 6 options (A–F) where 2 to 4 are correct.
-Ask "Which of the following…?", "Select all that apply:" or "Which options correctly describe…?".
+    promptInstruction: `Generate ONE question with 6 options (A–F) where 2 to 4 options are correct. Ask the student to identify all applicable BABOK elements/actions for a specific context.
 
-CRITICAL RULES for question and option wording:
-- Do NOT use the exact name, label, or word roots of a correct answer option anywhere in the question stem.
-- Do NOT describe the defining characteristic, role definition, or primary function of a correct answer option in the question. For example, if a correct option is "Domain Subject Matter Expert", do not use the phrase "expertise on the subject matter" — that is the definition of that role. Ask about the task context, outcome, or responsibility instead.
-- Correct options must be identified by their function, purpose, or description — NOT by echoing keywords from the question or naming the concept the question is already describing.
-- Incorrect (distractor) options must use realistic BABOK terminology and be plausible enough that a student without knowledge could be confused. Do not use obviously wrong terms.
-- Ensure the question cannot be answered by simple pattern-matching between question wording and option wording.
-
-Format your response EXACTLY like this:
-
-QUESTION: [your question here]
-A) [option text]
-B) [option text]
-C) [option text]
-D) [option text]
-E) [option text]
-F) [option text]
-EXPLAIN_A: CORRECT | [one sentence — why this is correct]
-EXPLAIN_B: INCORRECT | [one sentence — why this is wrong and what concept it refers to]
-EXPLAIN_C: CORRECT | [one sentence — why this is correct]
-EXPLAIN_D: INCORRECT | [one sentence — why this is wrong and what concept it refers to]
-EXPLAIN_E: INCORRECT | [one sentence — why this is wrong and what concept it refers to]
-EXPLAIN_F: INCORRECT | [one sentence — why this is wrong and what concept it refers to]
-
-Rules for EXPLAIN lines:
-- Start each EXPLAIN line with CORRECT or INCORRECT (all caps) followed by " | " and the explanation.
-- There must be exactly 2 to 4 CORRECT lines total.
-- CORRECT means right answer; INCORRECT means wrong. Be consistent — do NOT include a separate CORRECT: line.`,
+Output Format EXACTLY as:
+QUESTION: [Stem text]
+A) [Option]
+B) [Option]
+C) [Option]
+D) [Option]
+E) [Option]
+F) [Option]
+EXPLAIN_A: CORRECT | [1-sentence reason]
+EXPLAIN_B: INCORRECT | [1-sentence reason]
+EXPLAIN_C: CORRECT | [1-sentence reason]
+EXPLAIN_D: INCORRECT | [1-sentence reason]
+EXPLAIN_E: INCORRECT | [1-sentence reason]
+EXPLAIN_F: INCORRECT | [1-sentence reason]`,
     evalInstruction: '',  // Evaluated locally using stored correct answers and explanations
     maxTokensQ: 700,
-    maxTokensE: 0,
+    maxTokensE: 500,
   },
   3: {
     name: 'Understanding',
     description: 'One-sentence answer — define or explain the purpose',
-    promptInstruction: `Generate ONE clear question that asks the student to define a term, state a purpose, or explain a concept in their own words.
-Expect a 1-2 sentence answer. Do NOT use multiple choice. Return ONLY the question text.`,
-    evalInstruction: `Evaluate the student's brief answer. Use ONLY the lines below — no prose, no headers, no extra text.
-Format EXACTLY like this:
-**Overall:** X/10
-✅ [one line: what the student got right] (repeat only if more than one right concepts provided in reply)
-⚠️ [one line: key idea that was missing or imprecise] (repeat only if more than one gap)
-📖 BABOK: [one or few sentence: the correct definition or purpose including what the student got right and was missing or imprecise]
+    promptInstruction: `Generate ONE clear question asking the student to define a concept, state a purpose, or explain a BABOK relationship in their own words. Expect a 1-2 sentence response. Return ONLY the question text.`,
+    evalInstruction: `EVALUATION: Understanding Level
+STUDENT ANSWER: {student_text_input}
+BABOK CONCEPT: {babok_reference_concept}
 
-Keep every line concise. Output nothing outside these lines.`,
+Evaluate using ONLY this format:
+**Overall Score:** X/10
+✅ **Correct Elements:** [Key concepts accurately identified]
+⚠️ **Missing/Imprecise:** [Missing or incorrect BABOK concepts]
+📖 **BABOK Alignment:** [Concise 1-2 sentence summary of full standard answer]`,
     maxTokensQ: 200,
     maxTokensE: 300,
   },
   4: {
     name: 'Application',
     description: 'Short structured answer — describe elements, list steps, explain usage',
-    promptInstruction: `Generate ONE question that asks the student to describe key elements, list techniques/steps, or explain how something is used in practice.
-Expect a paragraph-length answer. Do NOT use multiple choice. Return ONLY the question text.`,
-    evalInstruction: `The student provided a structured answer. Evaluate completeness of key elements covered, correctness of descriptions, and use of BABOK terminology. List what was covered well and what was missed.`,
+    promptInstruction: `Generate ONE scenario (75–125 words) describing a project situation with conflicting priorities or constraints. Ask: "What should the Business Analyst do NEXT?" or "Which technique is most appropriate?". Include 4 options (A-D).`,
+    evalInstruction: `Critique the student's selected action and written logic. Highlight whether their next-step approach aligns with BABOK task sequencing.`,
     maxTokensQ: 200,
     maxTokensE: 1200,
   },
   5: {
     name: 'Analysis',
     description: 'Compare, contrast, and explain relationships between BABOK elements',
-    promptInstruction: `Generate ONE analytical question that requires the student to compare concepts, explain relationships between knowledge areas/tasks/techniques, or analyze how inputs flow between tasks.
-The question should reference at least two related BABOK elements. Do NOT use multiple choice. Return ONLY the question text.`,
-    evalInstruction: `The student provided an analytical answer. Evaluate depth of analysis, accuracy of relationships described, understanding of connections between BABOK elements, and use of proper terminology. Be thorough — this is an advanced level.`,
+    promptInstruction: `Generate ONE scenario involving at least TWO interacting BABOK Knowledge Areas (e.g., RLCM vs. RADD). Ask the student to analyze root causes, missing inputs, or structural trade-offs between techniques. Expect a structured paragraph response or 4-option selection with justification. Return ONLY the scenario prompt.`,
+    evalInstruction: `Evaluate the student's analysis based on:
+1. Depth of root-cause analysis.
+2. Accuracy of connections drawn between BABOK Knowledge Areas/Inputs/Outputs.
+3. Correct use of BABOK terminology.
+Provide feedback structured into: **Analysis Strengths**, **Misaligned Logic**, and **CBAP Standard Perspective**.`,
     maxTokensQ: 250,
     maxTokensE: 1500,
   },
   6: {
     name: 'Synthesis',
     description: 'Scenario-based — design a BA approach using multiple BABOK concepts',
-    promptInstruction: `Generate ONE scenario-based question that describes a realistic business situation and asks the student to recommend appropriate BABOK knowledge areas, tasks, techniques, and/or stakeholder engagement strategies.
-The scenario should require integrating multiple BABOK concepts. Do NOT use multiple choice. Return ONLY the question text.`,
-    evalInstruction: `The student provided a comprehensive answer to a scenario question. Evaluate:
-- Appropriateness of selected knowledge areas, tasks, and techniques
-- Depth of reasoning for why those choices fit the scenario
-- Understanding of relationships and dependencies between BABOK elements
-- Use of proper terminology and BABOK structure
-This is the highest level — expect integration of multiple concepts.`,
+    promptInstruction: `Generate an enterprise case study (250–400 words) containing:
+1. Enterprise context & dynamic constraints (budget, timeline, regulatory).
+2. Stakeholder profiles and conflicting goals.
+3. Current state vs. desired future state.
+Follow the case study with ONE comprehensive question asking the student to propose/recommend a complete BA approach (Knowledge areas, tasks, techniques, governance strategy).
+Return ONLY the Case Study and Prompt Text.`,
+    evalInstruction: `Grade the response out of 100 based on the following rubric:
+- **Strategy Alignment (25%):** Correct identification of business needs and enterprise constraints.
+- **Task & Technique Selection (25%):** Appropriateness of selected BABOK techniques.
+- **Governance & Life Cycle (25%):** Stakeholder engagement, change management, and traceability planning.
+- **Terminological Precision (25%):** Strict alignment with BABOK v3 terminology.
+Provide a detailed breakdown with actionable feedback to help the user pass real CBAP case study questions.`,
     maxTokensQ: 350,
     maxTokensE: 2000,
   },
