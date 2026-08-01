@@ -1,102 +1,125 @@
-# Chunk Generator
+# BABOK Chunk Generator
 
-Parses book chapter files and outputs semantic JSONL chunks for vector database embedding.
+Converts BABOK® Guide HTML chapters into structured JSON chunks ready for Pinecone vector search. Each chunk maps to one section of one BABOK topic — fine-grained enough to retrieve exactly the right content in a RAG pipeline.
 
-**Output:** `chunker/embeddings-chunks.jsonl` -- 410 chunks, one JSON object per line.
-
-For the RAG pipeline (uploading to Pinecone, querying, chat server), see [`trainer/README.md`](../trainer/README.md).
+**Output:** `chunker/embeddings-chunks.jsonl` — one JSON object per line.  
+**Next step:** Upload to Pinecone with `node trainer/pinecone-upload.js` (see [`trainer/README.md`](../trainer/README.md)).
 
 ---
 
 ## Quick Start
 
 ```bash
+# 1. Install dependencies (run once)
 cd chunker
 npm install
-node chunker/chunker.js        # run from project root
+
+# 2. Run the chunker from the project root
+node chunker/chunker.js
 ```
 
-**Requires:** Node.js. No external API keys needed.
+The output file is written to **`chunker/embeddings-chunks.jsonl`** regardless of your working directory.
+
+**Requires:** Node.js (no API keys needed).
 
 ---
 
-## Chunk Types
+## Prerequisites & File Dependencies
 
-| Type | Count | Source |
-|------|-------|--------|
-| `task` | 30 | `chapters/03-08-*.html` -- knowledge area task sections (H2) |
-| `technique` | 36 | `chapters/techniques/10-*.html` |
-| `concept` | 22 | `chapters/02-business-analysis-key-concepts.html` |
-| `glossary_term` | varies | `chapters/glossary.html` |
-| `perspective` | 58 | `chapters/11-*.html` (sections, KA impacts, tables) |
+| What | Where |
+|------|-------|
+| Overview chapters | `chapters/01-introduction.html`, `chapters/02-business-analysis-key-concepts.html` |
+| BABOK HTML chapters | `chapters/03-*.html` … `chapters/08-*.html` |
+| Technique pages | `chapters/techniques/10-*.html` |
+| Mapping pages | `chapters/techniques-to-task-mapping.html`, `chapters/task-relationship-mapping.html` |
+| Competencies page | `chapters/09-underlying-competencies.html` |
+| Glossary page | `chapters/glossary.html` |
+| Perspectives pages | `chapters/11-1-*.html` … `chapters/11-5-*.html` |
+| Node packages | `node-html-parser` (listed in `package.json`) |
+
+If any source file is missing, the chunker logs a warning and skips that doc_type — it will not crash.
 
 ---
 
-## JSONL Schema
+## Output Schema
 
 Every chunk shares these base fields:
 
 ```json
 {
-  "chunk_id": "ch6_s1_analyze_current_state",
-  "type": "task",
-  "chapter": 6,
-  "chapter_title": "Strategy Analysis",
-  "section_id": "analyze-current-state",
-  "title": "Analyze Current State",
-  "text": "Full text for embedding..."
+  "id":           "task-3.1-plan-business-analysis-approach-purpose",
+  "doc_type":     "task",
+  "text":         "Task 3.1 Plan Business Analysis Approach\nSection: Purpose\nContent: ...",
+  "source_file":  "chapters/03-business-analysis-planning-and-monitoring.html",
+  "estimated_tokens": 240
 }
 ```
 
-Additional fields by type:
+Additional fields vary by `doc_type`:
 
-**`task`** -- also includes: `purpose`, `description`, `inputs[]`, `outputs[]`, `elements[]`, `techniques[]`, `stakeholders[]`, `guidelines_and_tools[]`
+| `doc_type` | Key extra fields |
+|------------|-----------------|
+| `task` | `chapter`, `section_id`, `title`, `sub_section`, `content` |
+| `technique` | `technique_id`, `technique_name`, `sub_section`, `content` |
+| `technique_task_mapping` | `technique_id`, `technique_name`, `knowledge_areas[]`, `mapped_task_ids[]` |
+| `task_task_mapping` | `task_id`, `task_name`, `chapter`, `inputs[]`, `outputs[]`, `techniques[]`, `mapping_entity` (entity chunks only) |
+| `competency` | `competency_category`, `competency_name`, `sub_section`, `content` |
+| `perspective` | `perspective_name`, `sub_section`, `content`, `impacted_knowledge_areas[]` (Impact section only) |
+| `glossary` | `term`, `definition` |
+| `overview` | `chapter`, `section_title`, `content` |
 
-**`technique`** -- also includes: `purpose`, `description`, `elements[]`, `usage_considerations.strengths[]`, `usage_considerations.limitations[]`
-
-**`concept`** -- also includes: `concept_type` (`baccm` | `key_term` | `stakeholder_role` | etc.), `description`
-
-**`glossary_term`** -- also includes: `term`, `definition`, `aliases[]`, `see_also[]`
-
-**`perspective`** -- also includes: `perspective` (agile/bi/it/ba/bpm), `section_type` (`section` | `ka_impact` | `table`)
-
----
-
-## HTML Source Structure
-
-All chapter files follow this wrapper:
-```html
-<body style="counter-reset: h1counter N;">
-  <header><nav>...</nav><h1>Title</h1></header>
-  <main><!-- content --></main>
-</body>
-```
-**Chapter number formula:** `display_number = counter_value + 1` (zero-indexed)
-
-**Task sections** (chapters 3-8): Each `<h2 id="task-id">` starts a task. H3 subsections in order: Purpose > Description > Inputs > [Diagram] > Elements > Guidelines and Tools > Techniques > Stakeholders > Outputs.
-
-**Glossary:** Terms split across multiple `<ul>` elements (one per letter group). Use `main > ul > li` selector -- do NOT assume a single list. Some entries lack a colon separator; use flexible regex.
-
-**Techniques:** One file per technique in `chapters/techniques/10-*.html`. Subsections match task structure; ends with Usage Considerations (H3) > Strengths and Limitations (H4).
+For full field definitions, selector rules, and chunk-boundary logic, see **[`PARSER_SPEC.md`](./PARSER_SPEC.md)**.
 
 ---
 
-## Configuration
+## Requesting Changes or Updates
 
-Edit `CONFIG` at the top of `chunker.js` to add chapters, change paths, or adjust chunk sizing:
+If the BABOK HTML structure changes, or you need to add a new chunk type:
 
-```js
-const CONFIG = {
-  chapters: [ /* knowledge area chapter paths and numbers */ ],
-  techniquesDir: 'chapters/techniques/',
-  conceptsFile:  'chapters/02-business-analysis-key-concepts.html',
-  glossaryFile:  'chapters/glossary.html',
-  outputFile:    'chunker/embeddings-chunks.jsonl',
-  targetChunkTokens: 1200,   // ~1200 tokens per chunk
-  charsPerToken:     4,      // rough estimate
-};
-```
+1. **Update `PARSER_SPEC.md` first** — define the new selectors, fields, and chunk ID pattern there.
+2. Then update `chunker.js` to implement what the spec says.
+3. Re-run the chunker and verify the new chunks appear in the JSONL output.
+4. Delete `trainer/embeddings-cache.json` so embeddings are regenerated on the next upload.
+
+> Never modify `chunker.js` to match structure you observed in the HTML without first documenting it in `PARSER_SPEC.md`. The spec is the source of truth.
 
 ---
 
-BABOK(R) is copyrighted by IIBA(R). This tool is for personal, non-commercial study only.
+BABOK® is copyrighted by IIBA®. This tool is for personal, non-commercial study only.
+
+---
+
+## 🤖 AI Agent & Support Developer Context
+
+> This section is for AI coding assistants (GitHub Copilot, ChatGPT, etc.) and developers onboarding to this codebase.
+
+**What this module does:**  
+`chunker/chunker.js` parses BABOK® Guide HTML source files and writes `chunker/embeddings-chunks.jsonl`. Each line is one JSON chunk representing a single section of BABOK content. The chunks are then embedded and uploaded to Pinecone by `trainer/pinecone-upload.js`.
+
+**Strict rule:** All parsing logic must conform to [`PARSER_SPEC.md`](./PARSER_SPEC.md). Do not infer DOM structure from inspection alone — verify against the spec first.
+
+**Key paths:**
+
+| File | Role |
+|------|------|
+| `chunker/chunker.js` | Main script — parse & emit |
+| `chunker/embeddings-chunks.jsonl` | Output consumed by upload script |
+| `chunker/PARSER_SPEC.md` | Authoritative DOM + schema specification |
+| `trainer/pinecone-upload.js` | Reads JSONL, generates embeddings, upserts to Pinecone |
+
+**Target vector store:** Pinecone — dense vectors, `text-embedding-3-large` model (dimension 3072). Index name: `ba-training-large`.
+
+**The 8 `doc_type` values** (defined in spec §1):
+
+| `doc_type` | Source |
+|------------|--------|
+| `task` | KA chapters 03–08 |
+| `technique` | `chapters/techniques/` |
+| `technique_task_mapping` | `chapters/techniques-to-task-mapping.html` |
+| `task_task_mapping` | `chapters/task-relationship-mapping.html` |
+| `competency` | `chapters/09-underlying-competencies.html` |
+| `perspective` | `chapters/11-1-*.html` … `11-5-*.html` |
+| `glossary` | `chapters/glossary.html` |
+| `overview` | `chapters/01-introduction.html`, `chapters/02-business-analysis-key-concepts.html` |
+
+**Chunk ID format** (spec §4): `{doc_type-prefix}-{ids}-{slug(sub_section)}` using hyphens only, lowercase, no special characters.

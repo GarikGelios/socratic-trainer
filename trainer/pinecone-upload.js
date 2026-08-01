@@ -35,168 +35,57 @@ const CONFIG = {
 // ============================================================================
 
 /**
- * Extract the most meaningful text from a chunk for embedding.
- * Different chunk types have different field structures.
+ * New chunk schema stores the embedding text directly in chunk.text (spec §6).
+ * Truncate to OpenAI's ~8191-token limit.
  */
 function extractTextForEmbedding(chunk) {
-  switch (chunk.chunk_type) {
-    case 'task':
-      return buildTaskText(chunk);
-    case 'technique':
-      return buildTechniqueText(chunk);
-    case 'glossary_term':
-    case 'key_term':
-      return `${chunk.term}: ${chunk.definition}`;
-    case 'stakeholder_role':
-      return `${chunk.role_name}: ${chunk.definition}`;
-    case 'conceptual_framework':
-      return buildConceptualFrameworkText(chunk);
-    case 'classification_schema':
-      return buildClassificationText(chunk);
-    case 'conceptual_explanation':
-      return `${chunk.title}. ${chunk.explanation || ''} ${chunk.key_principle || ''}`.trim();
-    case 'perspective_section':
-      return `${chunk.perspective} Perspective - ${chunk.section}: ${chunk.content}`;
-    case 'perspective_impact':
-      return buildPerspectiveImpactText(chunk);
-    case 'perspective_table':
-      return buildPerspectiveTableText(chunk);
-    default:
-      return JSON.stringify(chunk);
-  }
-}
-
-function buildTaskText(chunk) {
-  const id = chunk.identification || {};
-  const parts = [
-    `${id.task_title || ''} (${id.chapter_title || ''})`,
-    chunk.purpose || '',
-    chunk.description || '',
-  ];
-
-  if (Array.isArray(chunk.elements)) {
-    chunk.elements.forEach(e => {
-      parts.push(`${e.title}: ${e.description}`);
-    });
-  }
-
-  if (Array.isArray(chunk.techniques)) {
-    parts.push('Techniques: ' + chunk.techniques.map(t => `${t.title} - ${t.description}`).join('; '));
-  }
-
-  return parts.filter(Boolean).join('\n');
-}
-
-function buildTechniqueText(chunk) {
-  const id = chunk.identification || {};
-  const parts = [
-    id.technique_title || '',
-    chunk.purpose || '',
-    chunk.description || '',
-  ];
-
-  if (Array.isArray(chunk.elements)) {
-    chunk.elements.forEach(e => {
-      parts.push(`${e.title}: ${e.description}`);
-    });
-  }
-
-  if (chunk.usage_considerations) {
-    if (chunk.usage_considerations.strengths?.length) {
-      parts.push('Strengths: ' + chunk.usage_considerations.strengths.join('; '));
-    }
-    if (chunk.usage_considerations.limitations?.length) {
-      parts.push('Limitations: ' + chunk.usage_considerations.limitations.join('; '));
-    }
-  }
-
-  return parts.filter(Boolean).join('\n');
-}
-
-function buildConceptualFrameworkText(chunk) {
-  const parts = [chunk.title || '', chunk.description || ''];
-
-  if (Array.isArray(chunk.core_concepts)) {
-    chunk.core_concepts.forEach(c => {
-      parts.push(`${c.concept}: ${c.definition}`);
-    });
-  }
-
-  return parts.filter(Boolean).join('\n');
-}
-
-function buildClassificationText(chunk) {
-  const parts = [chunk.title || '', chunk.description || ''];
-
-  if (Array.isArray(chunk.requirement_types)) {
-    chunk.requirement_types.forEach(t => {
-      parts.push(`${t.type}: ${t.definition}`);
-    });
-  }
-
-  return parts.filter(Boolean).join('\n');
-}
-
-function buildPerspectiveImpactText(chunk) {
-  const parts = [
-    `${chunk.perspective} Perspective - Impact on ${chunk.knowledge_area}`,
-    chunk.context || '',
-    chunk.description || '',
-  ];
-
-  if (Array.isArray(chunk.techniques)) {
-    parts.push('Techniques: ' + chunk.techniques.map(t => `${t.name}: ${t.description}`).join('; '));
-  }
-
-  return parts.filter(Boolean).join('\n');
-}
-
-function buildPerspectiveTableText(chunk) {
-  const parts = [chunk.table_title || ''];
-  const items = chunk.approaches || chunk.techniques || [];
-  items.forEach(item => {
-    parts.push(`${item.name}: ${item.description}`);
-  });
-  return parts.filter(Boolean).join('\n');
+  const text = chunk.text || JSON.stringify(chunk);
+  const maxChars = 8191 * 4;
+  return text.length > maxChars ? text.substring(0, maxChars) : text;
 }
 
 // ============================================================================
 // METADATA — Build Pinecone metadata from chunk (must be flat key-value)
 // ============================================================================
 
+/** Build flat Pinecone metadata from the new doc_type-based chunk schema */
 function buildMetadata(chunk) {
   const meta = {
-    chunk_type: chunk.chunk_type,
-    source_file: chunk.metadata?.source_file || '',
+    doc_type: chunk.doc_type || '',
+    source_file: chunk.source_file || '',
+    sub_section: chunk.sub_section || '',
   };
 
-  switch (chunk.chunk_type) {
-    case 'task': {
-      const id = chunk.identification || {};
-      meta.chapter_num = id.chapter_num || 0;
-      meta.chapter_title = id.chapter_title || '';
-      meta.task_id = id.task_id || '';
-      meta.task_title = id.task_title || '';
+  switch (chunk.doc_type) {
+    case 'task':
+      meta.chapter = chunk.chapter || '';
+      meta.section_id = chunk.section_id || '';
+      meta.title = chunk.title || '';
       break;
-    }
-    case 'technique': {
-      const id = chunk.identification || {};
-      meta.technique_num = id.technique_num || '';
-      meta.technique_title = id.technique_title || '';
+    case 'technique':
+      meta.technique_id = chunk.technique_id || '';
+      meta.technique_name = chunk.technique_name || '';
       break;
-    }
-    case 'glossary_term':
-    case 'key_term':
+    case 'technique_task_mapping':
+      meta.technique_id = chunk.technique_id || '';
+      meta.technique_name = chunk.technique_name || '';
+      meta.mapped_task_ids = (chunk.mapped_task_ids || []).join(', ');
+      break;
+    case 'task_task_mapping':
+      meta.task_id = chunk.task_id || '';
+      meta.task_name = chunk.task_name || '';
+      meta.chapter = chunk.chapter || '';
+      if (chunk.mapping_entity) meta.mapping_entity = chunk.mapping_entity;
+      break;
+    case 'competency':
+      meta.competency_category = chunk.competency_category || '';
+      meta.competency_name = chunk.competency_name || '';
+      break;
+    case 'perspective':
+      meta.perspective_name = chunk.perspective_name || '';
+      break;
+    case 'glossary':
       meta.term = chunk.term || '';
-      break;
-    case 'stakeholder_role':
-      meta.role_name = chunk.role_name || '';
-      break;
-    case 'perspective_section':
-    case 'perspective_impact':
-    case 'perspective_table':
-      meta.perspective = chunk.perspective || '';
-      meta.perspective_num = chunk.perspective_num || '';
       break;
   }
 
@@ -224,17 +113,9 @@ async function main() {
   const chunks = lines.map(line => JSON.parse(line));
   console.log(`   Loaded ${chunks.length} chunks`);
 
-  // Extract text for each chunk
+  // Extract text for each chunk (truncation to 8191-token limit handled inside)
   console.log('\n📝 Extracting text for embedding...');
   const texts = chunks.map(extractTextForEmbedding);
-
-  // Truncate very long texts (OpenAI has 8191 token limit per text)
-  const maxChars = 8000 * 4; // rough estimate: 4 chars per token
-  texts.forEach((t, i) => {
-    if (t.length > maxChars) {
-      texts[i] = t.substring(0, maxChars);
-    }
-  });
 
   // Generate embeddings (or load cached)
   // Cache lives inside the trainer module folder
@@ -296,7 +177,7 @@ async function main() {
     const batchEmbeddings = allEmbeddings.slice(i, i + CONFIG.batchSize);
 
     const vectors = batchChunks.map((chunk, j) => ({
-      id: chunk.chunk_id,
+      id: chunk.id,
       values: batchEmbeddings[j],
       metadata: buildMetadata(chunk),
     })).filter(v => v.id && v.values);
