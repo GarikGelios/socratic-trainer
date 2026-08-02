@@ -715,7 +715,11 @@ app.post('/api/train/question', async (req, res) => {
         const correctText = parsedOptions.find(o => o.letter === cMatch[1])?.text;
         // Shuffle options so the correct answer isn't always at the same position
         const letters = ['A', 'B', 'C', 'D'];
-        const shuffled = parsedOptions.map(o => o.text).sort(() => Math.random() - 0.5);
+        const shuffled = parsedOptions.map(o => o.text);
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
         options = shuffled.map((text, i) => ({ letter: letters[i], text }));
         correctAnswer = options.find(o => o.text === correctText)?.letter || cMatch[1];
       }
