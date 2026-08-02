@@ -29,7 +29,7 @@ const OpenAI = require('openai');
 
 const CONFIG = {
   port: 3000,
-  indexName: 'ba-training-large',
+  indexName: 'ba-training-large-v2',
   // embeddingModel: 'text-embedding-3-small',
   embeddingModel: 'text-embedding-3-large',
   chatModel: 'gpt-4.1-mini',

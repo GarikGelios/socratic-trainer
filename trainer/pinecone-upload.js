@@ -20,7 +20,7 @@ const OpenAI = require('openai');
 
 const CONFIG = {
 //  indexName: 'ba-training',
-  indexName: 'ba-training-large',
+  indexName: 'ba-training-large-v2',
   // Chunks file produced by the chunker module — resolved relative to this file
   chunksFile: path.join(__dirname, '../chunker/embeddings-chunks.jsonl'),
  // embeddingModel: 'text-embedding-3-small', // 1536 dimensions
@@ -86,6 +86,11 @@ function buildMetadata(chunk) {
       break;
     case 'glossary':
       meta.term = chunk.term || '';
+      break;
+    case 'overview':
+    case 'core_concept':
+      meta.chapter = chunk.chapter || '';
+      meta.section_title = chunk.section_title || '';
       break;
   }
 

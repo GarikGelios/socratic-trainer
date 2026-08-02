@@ -10,7 +10,7 @@
 require('dotenv').config();
 const { Pinecone } = require('@pinecone-database/pinecone');
 
-const INDEX_NAME = 'ba-training';
+const INDEX_NAME = 'ba-training-large-v2';
 
 async function main() {
   const apiKey = process.env.PINECONE_API_KEY;
