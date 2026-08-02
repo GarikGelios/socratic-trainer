@@ -1,0 +1,7 @@
+[
+  {"title":"v1.0 - Security and Stability","description":"All security issues and configuration bugs. Must fix before sharing with anyone."},
+  {"title":"Phase 1 - Generic Foundation","description":"Tier 1 features: configurable prompts UI, generic topic taxonomy, multiple named indexes."},
+  {"title":"Phase 2 - Content Pipeline","description":"Tier 2 features: file/PDF upload, KB management UI, custom TOC from headings."},
+  {"title":"Phase 3 - Learning Intelligence","description":"Tier 3 features: session persistence (SQLite), weak topic detection, generic UI labels."},
+  {"title":"Phase 4 - Multi-user and Strategic","description":"Tier 4 features: user accounts, spaced repetition, URL ingestion."}
+]
