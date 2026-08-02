@@ -135,4 +135,110 @@ chunker/chunker.js
       POST /api/train/evaluate → score answer → suggest level change
 ```
 
+---
+
+## Pinecone Index Safe Sequence
+
+Use this sequence whenever you create a new index, rebuild an existing one, or append vectors.
+
+### 1) Decide the operation mode
+
+| Mode | When to use | Risk profile |
+|------|-------------|--------------|
+| New index (clean) | New corpus, schema change, or full rebuild | Safest, no overwrite risk |
+| Update existing index | Same corpus, refresh changed chunks | Medium, depends on IDs |
+| Append vectors | Add new content only | Medium-high, can create duplicates |
+
+### 2) Ensure model and index dimensions match
+
+- `text-embedding-3-large` requires a Pinecone index dimension of `3072`.
+- If dimensions do not match, upload/query will fail.
+
+### 3) Keep index name aligned in code/config
+
+Before upload and before server start, verify the same index name in:
+
+- `trainer/pinecone-upload.js` → `CONFIG.indexName`
+- `trainer/server.js` → `CONFIG.indexName` (or override source used by server)
+- `trainer/trainer-config.json` → `server.indexName` (if present)
+
+If these differ, vectors may upload to one index while the app queries another.
+
+### 4) Regenerate chunks and validate schema
+
+Run:
+
+```bash
+node chunker/chunker.js
+```
+
+Then confirm `chunker/embeddings-chunks.jsonl` matches upload expectations.
+Current uploader expects fields like:
+
+- `id`
+- `text`
+- `doc_type`
+
+If chunk schema changed, update `trainer/pinecone-upload.js` metadata/text extraction accordingly.
+
+### 5) Invalidate embedding cache when chunks changed
+
+If chunk content or ordering changed, delete cache before upload:
+
+```bash
+rm trainer/embeddings-cache.json
+```
+
+PowerShell:
+
+```powershell
+Remove-Item trainer/embeddings-cache.json -ErrorAction SilentlyContinue
+```
+
+Otherwise old embeddings may be reused for new chunks.
+
+### 6) Upload vectors
+
+Run:
+
+```bash
+node trainer/pinecone-upload.js
+```
+
+This is required for both:
+
+- creating data in a new index (new index is empty until upload)
+- updating/replacing data in an existing index
+
+### 7) Post-upload verification checklist
+
+1. Check index connectivity and vector count:
+
+```bash
+node trainer/pinecone-test.js
+```
+
+2. Run retrieval smoke test:
+
+```bash
+node trainer/pinecone-query.js "What is stakeholder engagement?" --chunks-only
+```
+
+3. Start app and test end-to-end:
+
+```bash
+node trainer/server.js
+```
+
+- Open `/` and ask one chat question
+- Open `/train` and generate one training question
+
+### 8) Notes for update vs append behavior
+
+- Upsert with the same `id` replaces that vector.
+- Upsert with new `id` adds another vector.
+- For a clean rebuild, prefer a new index or clear the namespace before upload.
+
+---
+
 BABOK® is copyrighted by IIBA®. This tool is for personal, non-commercial study only.
