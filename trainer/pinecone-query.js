@@ -1,4 +1,4 @@
-﻿// BABOK RAG Query Script
+// BABOK RAG Query Script
 // Embeds a question, queries Pinecone for relevant chunks, and generates an answer
 //
 // Setup:
@@ -20,7 +20,7 @@ const OpenAI = require('openai');
 
 const CONFIG = {
 //  indexName: 'ba-training',
-  indexName: 'ba-training-large',
+  indexName: 'ba-training-large-v2',
   //embeddingModel: 'text-embedding-3-small',
   embeddingModel: 'text-embedding-3-large',
   chatModel: 'gpt-4o-mini',
@@ -67,11 +67,11 @@ async function main() {
   const { question, chunksOnly, topK } = parseArgs();
 
   if (!process.env.PINECONE_API_KEY) {
-    console.error('вќЊ PINECONE_API_KEY not set in .env');
+    console.error('❌ PINECONE_API_KEY not set in .env');
     process.exit(1);
   }
   if (!process.env.OPENAI_API_KEY) {
-    console.error('вќЊ OPENAI_API_KEY not set in .env');
+    console.error('❌ OPENAI_API_KEY not set in .env');
     process.exit(1);
   }
 
@@ -80,8 +80,8 @@ async function main() {
   const index = pc.index(CONFIG.indexName);
 
   // Step 1: Embed the question
-  console.log(`\nвќ“ Question: "${question}"\n`);
-  console.log('рџ”Ќ Embedding question...');
+  console.log(`\n❓ Question: "${question}"\n`);
+  console.log('🔍 Embedding question...');
 
   const embeddingResponse = await openai.embeddings.create({
     model: CONFIG.embeddingModel,
@@ -90,7 +90,7 @@ async function main() {
   const queryVector = embeddingResponse.data[0].embedding;
 
   // Step 2: Query Pinecone
-  console.log(`рџ“Ў Querying Pinecone (top ${topK})...\n`);
+  console.log(`📎 Querying Pinecone (top ${topK})...\n`);
 
   const results = await index.query({
     vector: queryVector,
@@ -101,13 +101,13 @@ async function main() {
   const matches = (results.matches || []).filter(m => m.score >= CONFIG.scoreThreshold);
 
   if (matches.length === 0) {
-    console.log('вљ пёЏ  No relevant chunks found above score threshold.');
+    console.log('⚠️  No relevant chunks found above score threshold.');
     process.exit(0);
   }
 
   // Step 3: Display retrieved chunks
-  console.log(`рџ“љ Retrieved ${matches.length} chunks:\n`);
-  console.log('в”Ђ'.repeat(70));
+  console.log(`📚 Retrieved ${matches.length} chunks:\n`);
+  console.log('─'.repeat(70));
 
   matches.forEach((match, i) => {
     const meta = match.metadata || {};
@@ -121,15 +121,15 @@ async function main() {
     if (meta.perspective) console.log(`     Perspective: ${meta.perspective}`);
     console.log('');
   });
-  console.log('в”Ђ'.repeat(70));
+  console.log('─'.repeat(70));
 
   if (chunksOnly) {
-    console.log('\nвњ… Chunks-only mode вЂ” skipping LLM answer generation.');
+    console.log('\n✅ Chunks-only mode - skipping LLM answer generation.');
     process.exit(0);
   }
 
   // Step 4: Build context from chunk JSONL data (richer than metadata alone)
-  console.log('\nрџ¤– Generating answer...\n');
+  console.log('\nGenerating answer...\n');
 
   // Load full chunk data for retrieved IDs
   const fs = require('fs');
@@ -170,7 +170,7 @@ async function main() {
   const context = contextParts.join('\n\n---\n\n');
 
   // Step 5: Generate answer with GPT
-  const systemPrompt = `You are a Business Analysis expert trained on the BABOKВ® Guide (Business Analysis Body of Knowledge).
+  const systemPrompt = `You are a Business Analysis expert trained on the BABOK® Guide (Business Analysis Body of Knowledge).
 Answer questions using ONLY the provided context from the BABOK guide. Be specific and reference BABOK concepts, tasks, and techniques.
 If the context doesn't contain enough information to fully answer, say so.
 Format your answer with clear structure using headers, bullet points, and bold for key terms.`;
@@ -187,17 +187,17 @@ Format your answer with clear structure using headers, bullet points, and bold f
 
   const answer = completion.choices[0].message.content;
 
-  console.log('в•ђ'.repeat(70));
+  console.log('═'.repeat(70));
   console.log('ANSWER');
-  console.log('в•ђ'.repeat(70));
+  console.log('═'.repeat(70));
   console.log(answer);
-  console.log('в•ђ'.repeat(70));
+  console.log('═'.repeat(70));
   console.log(`\nTokens used: ${completion.usage.prompt_tokens} prompt + ${completion.usage.completion_tokens} completion = ${completion.usage.total_tokens} total`);
   console.log(`Model: ${CONFIG.chatModel}`);
   console.log(`Chunks used: ${matches.length}`);
 }
 
 main().catch(err => {
-  console.error('\nвќЊ Error:', err.message);
+  console.error('\n❌ Error:', err.message);
   process.exit(1);
 });
