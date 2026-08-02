@@ -111,14 +111,27 @@ async function main() {
 
   matches.forEach((match, i) => {
     const meta = match.metadata || {};
-    const label = meta.task_title || meta.technique_title || meta.term || meta.role_name || meta.perspective || meta.chunk_type || match.id;
+    const label =
+      meta.title ||
+      meta.task_name ||
+      meta.technique_name ||
+      meta.task_title ||
+      meta.technique_title ||
+      meta.term ||
+      meta.role_name ||
+      meta.perspective_name ||
+      meta.perspective ||
+      meta.doc_type ||
+      meta.chunk_type ||
+      match.id;
+    const type = meta.doc_type || meta.chunk_type || 'unknown';
     console.log(`  ${i + 1}. [${match.score.toFixed(3)}] ${label}`);
     console.log(`     ID: ${match.id}`);
-    console.log(`     Type: ${meta.chunk_type || 'unknown'} | Source: ${meta.source_file || 'N/A'}`);
+    console.log(`     Type: ${type} | Source: ${meta.source_file || 'N/A'}`);
 
     // Show extra metadata based on chunk type
-    if (meta.chapter_title) console.log(`     Chapter: ${meta.chapter_title}`);
-    if (meta.perspective) console.log(`     Perspective: ${meta.perspective}`);
+    if (meta.chapter_title || meta.chapter) console.log(`     Chapter: ${meta.chapter_title || meta.chapter}`);
+    if (meta.perspective || meta.perspective_name) console.log(`     Perspective: ${meta.perspective || meta.perspective_name}`);
     console.log('');
   });
   console.log('─'.repeat(70));
@@ -139,7 +152,8 @@ async function main() {
   const chunkMap = new Map();
   chunkLines.forEach(line => {
     const chunk = JSON.parse(line);
-    chunkMap.set(chunk.chunk_id, chunk);
+    const key = chunk.id || chunk.chunk_id;
+    if (key) chunkMap.set(key, chunk);
   });
 
   const contextParts = matches.map((match, i) => {
@@ -147,7 +161,8 @@ async function main() {
     if (!fullChunk) return `[${i + 1}] (chunk data not found for ${match.id})`;
 
     // Build readable context based on chunk type
-    const parts = [`[${i + 1}] ${fullChunk.chunk_id} (score: ${match.score.toFixed(3)})`];
+    const chunkId = fullChunk.id || fullChunk.chunk_id || match.id;
+    const parts = [`[${i + 1}] ${chunkId} (score: ${match.score.toFixed(3)})`];
 
     if (fullChunk.purpose) parts.push(`Purpose: ${fullChunk.purpose}`);
     if (fullChunk.description) parts.push(`Description: ${fullChunk.description}`);
