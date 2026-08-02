@@ -90,11 +90,104 @@ const index = pc.index(CONFIG.indexName);
 const chunksPath = path.join(__dirname, '../chunker/embeddings-chunks.jsonl');
 const chunkMap = new Map();
 
+function getChunkId(chunk) {
+  return chunk?.id || chunk?.chunk_id || null;
+}
+
+function getChunkType(chunk) {
+  return chunk?.doc_type || chunk?.chunk_type || 'unknown';
+}
+
+function getMetaType(meta, chunk) {
+  return meta?.doc_type || meta?.chunk_type || getChunkType(chunk);
+}
+
+function getMetaLabel(meta, chunk) {
+  return (
+    meta?.title ||
+    meta?.task_name ||
+    meta?.technique_name ||
+    meta?.task_title ||
+    meta?.technique_title ||
+    meta?.term ||
+    meta?.role_name ||
+    meta?.perspective_name ||
+    meta?.perspective ||
+    chunk?.title ||
+    chunk?.task_name ||
+    chunk?.technique_name ||
+    chunk?.term ||
+    chunk?.role_name ||
+    getChunkId(chunk) ||
+    'Unknown'
+  );
+}
+
+function getChunkChapterNum(chunk) {
+  if (Number.isInteger(chunk?.identification?.chapter_num)) return chunk.identification.chapter_num;
+  if (typeof chunk?.chapter === 'string') {
+    const match = chunk.chapter.match(/^(\d+)/);
+    if (match) return parseInt(match[1], 10);
+  }
+  return null;
+}
+
+function getChunkTaskSelectorId(chunk) {
+  return chunk?.identification?.task_id || chunk?.section_id || null;
+}
+
+function slugifyTaskLabel(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function getCanonicalTaskId(chunk) {
+  if (chunk?.section_id) return String(chunk.section_id);
+  if (chunk?.identification?.task_id) return String(chunk.identification.task_id);
+  if (chunk?.task_id) return String(chunk.task_id);
+  const id = String(getChunkId(chunk) || '');
+  let match = id.match(/^task-(\d+\.\d+)-/);
+  if (match) return match[1];
+  match = id.match(/^mapping-task-(\d+\.\d+)-/);
+  if (match) return match[1];
+  return null;
+}
+
+function getChunkTaskSelectorKeys(chunk) {
+  const keys = new Set();
+  const canonicalId = getCanonicalTaskId(chunk);
+  if (canonicalId) keys.add(canonicalId.toLowerCase());
+
+  const titleSlug = slugifyTaskLabel(chunk?.identification?.task_title || chunk?.title || chunk?.task_name);
+  if (titleSlug) keys.add(titleSlug);
+
+  const id = String(getChunkId(chunk) || '').toLowerCase();
+  let match = id.match(/^task-\d+\.\d+-([a-z0-9-]+)-/);
+  if (match && match[1]) keys.add(match[1]);
+  match = id.match(/^mapping-task-\d+\.\d+-([a-z0-9-]+)(?:-|$)/);
+  if (match && match[1]) keys.add(match[1]);
+
+  return keys;
+}
+
+function extractTaskIdsFromTextList(values) {
+  const ids = new Set();
+  if (!Array.isArray(values)) return ids;
+  values.forEach((value) => {
+    const matches = String(value || '').match(/\b\d+\.\d+\b/g) || [];
+    matches.forEach((id) => ids.add(id));
+  });
+  return ids;
+}
+
 if (fs.existsSync(chunksPath)) {
   const lines = fs.readFileSync(chunksPath, 'utf8').split('\n').filter(Boolean);
   lines.forEach(line => {
     const chunk = JSON.parse(line);
-    chunkMap.set(chunk.chunk_id, chunk);
+    const id = getChunkId(chunk);
+    if (id) chunkMap.set(id, chunk);
   });
   console.log(`📚 Loaded ${chunkMap.size} chunks`);
 } else {
@@ -109,10 +202,10 @@ const sessions = new Map();
 // Build array of chunks suitable for training questions
 const trainableChunks = [];
 for (const [id, chunk] of chunkMap) {
-  const type = chunk.chunk_type;
+  const type = getChunkType(chunk);
   // Skip redirect glossary terms ("See X") and very small chunks
   if (chunk.cross_reference?.type === 'redirect') continue;
-  if (type === 'glossary_term' && (!chunk.definition || chunk.definition.length < 40)) continue;
+  if ((type === 'glossary_term' || type === 'glossary') && (!chunk.definition || chunk.definition.length < 40)) continue;
   trainableChunks.push(chunk);
 }
 console.log(`🎓 ${trainableChunks.length} chunks available for training`);
@@ -229,6 +322,13 @@ Provide a detailed breakdown with actionable feedback to help the user pass real
 const CHUNK_CATEGORY_LABELS = {
   task:                   'Knowledge Area Task',
   technique:              'Technique',
+  technique_task_mapping: 'Technique-to-Task Mapping',
+  task_task_mapping:      'Task Relationship Mapping',
+  competency:             'Underlying Competency',
+  perspective:            'Perspective',
+  glossary:               'Glossary Term',
+  overview:               'Overview',
+  core_concept:           'Core Concept',
   glossary_term:          'Glossary Term',
   key_term:               'Key Term',
   stakeholder_role:       'Stakeholder Role',
@@ -240,7 +340,7 @@ const CHUNK_CATEGORY_LABELS = {
   perspective_table:      'Perspective Table',
 };
 
-// Question-angle rotation — 7 aspects cycled per chunk to prevent repetition
+// Question-angle rotation — 7 aspects cycled by chunk type across the session to prevent repetition
 const ASPECTS = [
   { key: 'purpose',      instruction: 'Ask about the PURPOSE or primary objective of this task.' },
   { key: 'elements',     instruction: 'Ask about the KEY ELEMENTS or components described for this task.' },
@@ -250,6 +350,42 @@ const ASPECTS = [
   { key: 'stakeholders', instruction: 'Ask about the STAKEHOLDERS involved in or affected by this task and their roles.' },
   { key: 'application',  instruction: 'Ask about a practical situation where this task would be applied or how it is performed.' },
 ];
+
+const ASPECT_KEYS_BY_TYPE = {
+  task: ['purpose', 'elements', 'techniques', 'inputs', 'outputs', 'stakeholders', 'application'],
+  technique: ['elements', 'techniques', 'application', 'purpose'],
+  technique_task_mapping: ['techniques', 'application', 'inputs', 'outputs'],
+  task_task_mapping: ['inputs', 'outputs', 'stakeholders', 'application'],
+  glossary: ['application', 'elements'],
+  glossary_term: ['application', 'elements'],
+  key_term: ['application', 'elements'],
+  stakeholder_role: ['stakeholders', 'application'],
+  competency: ['application', 'elements'],
+  conceptual_framework: ['elements', 'application'],
+  classification_schema: ['elements', 'application'],
+  conceptual_explanation: ['elements', 'application'],
+  overview: ['elements', 'application'],
+  core_concept: ['elements', 'application'],
+  perspective: ['application', 'stakeholders', 'elements'],
+  perspective_section: ['application', 'stakeholders', 'elements'],
+  perspective_impact: ['application', 'stakeholders', 'outputs'],
+  perspective_table: ['elements', 'application'],
+};
+
+const LEVEL1_STEM_VARIANTS = [
+  'Use a situational decision stem (best next action under a realistic constraint).',
+  'Use a relationship stem (input-output, producer-consumer, or predecessor-successor relationship).',
+  'Use a stakeholder responsibility stem (who is responsible/involved and why).',
+  'Use a technique selection stem (which method best fits the context and objective).',
+  'Use a distinction stem (differentiate two plausible BABOK concepts by context).',
+];
+
+function getAspectCandidatesForType(type) {
+  const aspectByKey = new Map(ASPECTS.map((aspect) => [aspect.key, aspect]));
+  const preferredKeys = ASPECT_KEYS_BY_TYPE[type] || ASPECT_KEYS_BY_TYPE.task;
+  const preferred = preferredKeys.map((k) => aspectByKey.get(k)).filter(Boolean);
+  return preferred.length > 0 ? preferred : ASPECTS;
+}
 
 // Auto-progression score thresholds (out of 10)
 const TRAINING_CONFIG = {
@@ -371,8 +507,8 @@ async function retrieveContext(question) {
     return {
       id: match.id,
       score: match.score,
-      type: meta.chunk_type || fullChunk.chunk_type,
-      label: meta.task_title || meta.technique_title || meta.term || meta.role_name || fullChunk.chunk_id,
+      type: getMetaType(meta, fullChunk),
+      label: getMetaLabel(meta, fullChunk),
       text: parts.join('\n'),
     };
   });
@@ -483,11 +619,13 @@ app.get('/train', (_req, res) => {
 // Extract readable reference text from a chunk (the "correct answer" material)
 function extractReferenceText(chunk) {
   const parts = [];
-  const type = chunk.chunk_type;
+  const type = getChunkType(chunk);
 
   if (type === 'task') {
     const id = chunk.identification || {};
-    if (id.task_title) parts.push(`Task: ${id.task_title} (${id.chapter_title || ''})`);
+    const taskTitle = id.task_title || chunk.title || chunk.task_name;
+    const chapterTitle = id.chapter_title || chunk.chapter || '';
+    if (taskTitle) parts.push(`Task: ${taskTitle} (${chapterTitle})`);
     if (chunk.purpose) parts.push(`Purpose: ${chunk.purpose}`);
     if (chunk.description) parts.push(`Description: ${chunk.description}`);
     if (chunk.elements?.length) {
@@ -502,7 +640,7 @@ function extractReferenceText(chunk) {
     }
   } else if (type === 'technique') {
     const id = chunk.identification || {};
-    if (id.technique_title) parts.push(`Technique: ${id.technique_title}`);
+    if (id.technique_title || chunk.technique_name) parts.push(`Technique: ${id.technique_title || chunk.technique_name}`);
     if (chunk.purpose) parts.push(`Purpose: ${chunk.purpose}`);
     if (chunk.description) parts.push(`Description: ${chunk.description}`);
     if (chunk.elements?.length) {
@@ -515,7 +653,7 @@ function extractReferenceText(chunk) {
       if (chunk.usage_considerations.limitations?.length)
         parts.push('Limitations: ' + chunk.usage_considerations.limitations.join('; '));
     }
-  } else if (type === 'glossary_term' || type === 'key_term') {
+  } else if (type === 'glossary_term' || type === 'key_term' || type === 'glossary') {
     parts.push(`${chunk.term}: ${chunk.definition}`);
   } else if (type === 'stakeholder_role') {
     parts.push(`${chunk.role_name}: ${chunk.definition}`);
@@ -533,16 +671,29 @@ function extractReferenceText(chunk) {
     parts.push(`${chunk.title}`);
     if (chunk.key_principle) parts.push(`Key principle: ${chunk.key_principle}`);
     if (chunk.explanation) parts.push(chunk.explanation);
-  } else if (type === 'perspective_section') {
-    parts.push(`${chunk.perspective} Perspective - ${chunk.section}`);
+  } else if (type === 'perspective_section' || type === 'perspective') {
+    parts.push(`${chunk.perspective || chunk.perspective_name || 'Perspective'}${chunk.section ? ' - ' + chunk.section : ''}`);
     if (chunk.content) parts.push(typeof chunk.content === 'string' ? chunk.content : JSON.stringify(chunk.content));
   } else if (type === 'perspective_impact') {
     parts.push(`${chunk.perspective} Perspective - Impact on ${chunk.knowledge_area}`);
     if (chunk.description) parts.push(chunk.description);
   } else if (type === 'perspective_table') {
-    parts.push(chunk.table_title || chunk.chunk_id);
+    parts.push(chunk.table_title || getChunkId(chunk));
     const items = chunk.approaches || chunk.techniques || chunk.methodologies || chunk.reference_models || [];
     items.forEach(item => parts.push(`  - ${item.name}: ${item.description}`));
+  } else if (type === 'task_task_mapping') {
+    if (chunk.task_id || chunk.task_name) parts.push(`Task Mapping: ${chunk.task_id || ''} ${chunk.task_name || ''}`.trim());
+    if (chunk.mapping_entity) parts.push(`Entity: ${chunk.mapping_entity}`);
+    if (Array.isArray(chunk.mapping_values) && chunk.mapping_values.length) {
+      parts.push('Values:');
+      chunk.mapping_values.forEach(v => parts.push(`  - ${v}`));
+    }
+    if (Array.isArray(chunk.downstream_task_ids) && chunk.downstream_task_ids.length) {
+      parts.push('Related Tasks: ' + chunk.downstream_task_ids.join(', '));
+    }
+  } else if (type === 'overview' || type === 'core_concept') {
+    if (chunk.chapter || chunk.section_title) parts.push(`${chunk.chapter || 'Overview'} - ${chunk.section_title || 'Section'}`);
+    if (chunk.content) parts.push(chunk.content);
   } else {
     parts.push(JSON.stringify(chunk).substring(0, 1000));
   }
@@ -552,21 +703,24 @@ function extractReferenceText(chunk) {
 
 // Get a human-readable label for the chunk topic
 function getChunkLabel(chunk) {
-  const type = chunk.chunk_type;
-  if (type === 'task') return chunk.identification?.task_title || chunk.chunk_id;
-  if (type === 'technique') return chunk.identification?.technique_title || chunk.chunk_id;
-  if (type === 'glossary_term' || type === 'key_term') return chunk.term;
+  const type = getChunkType(chunk);
+  if (type === 'task') return chunk.identification?.task_title || chunk.title || chunk.task_name || getChunkId(chunk);
+  if (type === 'technique') return chunk.identification?.technique_title || chunk.technique_name || getChunkId(chunk);
+  if (type === 'glossary_term' || type === 'key_term' || type === 'glossary') return chunk.term || getChunkId(chunk);
   if (type === 'stakeholder_role') return chunk.role_name;
   if (type === 'conceptual_framework' || type === 'classification_schema' || type === 'conceptual_explanation') return chunk.title;
+  if (type === 'overview' || type === 'core_concept') return chunk.section_title || chunk.title || getChunkId(chunk);
+  if (type === 'task_task_mapping') return chunk.task_name || chunk.task_id || getChunkId(chunk);
   if (type === 'perspective_section') return `${chunk.perspective} - ${chunk.section}`;
   if (type === 'perspective_impact') return `${chunk.perspective} - ${chunk.knowledge_area}`;
-  if (type === 'perspective_table') return chunk.table_title || chunk.chunk_id;
-  return chunk.chunk_id;
+  if (type === 'perspective_table' || type === 'perspective') return chunk.table_title || chunk.perspective_name || getChunkId(chunk);
+  return getChunkId(chunk);
 }
 
 // Category labels for UI
 function getChunkCategory(chunk) {
-  return CHUNK_CATEGORY_LABELS[chunk.chunk_type] || chunk.chunk_type;
+  const type = getChunkType(chunk);
+  return CHUNK_CATEGORY_LABELS[type] || type || 'Unknown';
 }
 
 // Generate a training question
@@ -606,26 +760,69 @@ app.post('/api/train/question', async (req, res) => {
 
   // Pick a chunk: filter by topic if provided, else random
   let pool = trainableChunks;
+  let topicLabelOverride = null;
   if (topic && typeof topic === 'string') {
     const t = topic.toLowerCase();
     if (t.startsWith('chapter:')) {
       const chapterNum = parseInt(t.split(':')[1], 10);
       pool = trainableChunks.filter(c =>
-        c.chunk_type === 'task' && c.identification?.chapter_num === chapterNum
+        getChunkType(c) === 'task' && getChunkChapterNum(c) === chapterNum
       );
     } else if (t.startsWith('task:')) {
-      const taskId = t.split(':')[1];
-      pool = trainableChunks.filter(c =>
-        c.chunk_type === 'task' && c.identification?.task_id === taskId
+      const taskToken = t.split(':')[1];
+      const selectedTaskChunks = trainableChunks.filter(c =>
+        getChunkType(c) === 'task' && getChunkTaskSelectorKeys(c).has(taskToken)
       );
+
+      const directMappingChunks = trainableChunks.filter(c =>
+        getChunkType(c) === 'task_task_mapping' && getChunkTaskSelectorKeys(c).has(taskToken)
+      );
+
+      const relatedTaskIds = new Set();
+      if (/^\d+\.\d+$/.test(taskToken)) relatedTaskIds.add(taskToken);
+
+      selectedTaskChunks.forEach((chunk) => {
+        const id = getCanonicalTaskId(chunk);
+        if (id) relatedTaskIds.add(String(id));
+      });
+
+      directMappingChunks.forEach((chunk) => {
+        const baseId = getCanonicalTaskId(chunk);
+        if (baseId) relatedTaskIds.add(String(baseId));
+        if (Array.isArray(chunk.downstream_task_ids)) {
+          chunk.downstream_task_ids.forEach((id) => {
+            if (/^\d+\.\d+$/.test(String(id || ''))) relatedTaskIds.add(String(id));
+          });
+        }
+        extractTaskIdsFromTextList(chunk.mapping_values).forEach((id) => relatedTaskIds.add(id));
+      });
+
+      const relatedTaskChunks = trainableChunks.filter(c =>
+        getChunkType(c) === 'task' && relatedTaskIds.has(String(getCanonicalTaskId(c) || ''))
+      );
+
+      const relatedMappingChunks = trainableChunks.filter(c =>
+        getChunkType(c) === 'task_task_mapping' && relatedTaskIds.has(String(getCanonicalTaskId(c) || ''))
+      );
+
+      const poolById = new Map();
+      [...selectedTaskChunks, ...directMappingChunks, ...relatedTaskChunks, ...relatedMappingChunks]
+        .forEach((chunk) => {
+          const id = getChunkId(chunk);
+          if (id) poolById.set(id, chunk);
+        });
+
+      pool = Array.from(poolById.values());
+      topicLabelOverride = selectedTaskChunks.length > 0 ? getChunkLabel(selectedTaskChunks[0]) : `Task ${taskToken}`;
     } else {
       pool = trainableChunks.filter(c => {
-        if (t === 'tasks') return c.chunk_type === 'task';
-        if (t === 'techniques') return c.chunk_type === 'technique';
-        if (t === 'glossary') return c.chunk_type === 'glossary_term';
-        if (t === 'stakeholders') return c.chunk_type === 'stakeholder_role';
-        if (t === 'concepts') return ['key_term', 'conceptual_framework', 'classification_schema', 'conceptual_explanation'].includes(c.chunk_type);
-        if (t === 'perspectives') return c.chunk_type.startsWith('perspective');
+        const type = getChunkType(c);
+        if (t === 'tasks') return type === 'task';
+        if (t === 'techniques') return type === 'technique';
+        if (t === 'glossary') return type === 'glossary_term' || type === 'glossary';
+        if (t === 'stakeholders') return type === 'stakeholder_role';
+        if (t === 'concepts') return ['key_term', 'conceptual_framework', 'classification_schema', 'conceptual_explanation', 'overview', 'core_concept'].includes(type);
+        if (t === 'perspectives') return type.startsWith('perspective') || type === 'perspective';
         return true;
       });
     }
@@ -634,13 +831,13 @@ app.post('/api/train/question', async (req, res) => {
 
   // For higher levels, prefer richer content (tasks, techniques, perspectives)
   if (currentLevel >= 5) {
-    const rich = pool.filter(c => ['task', 'technique', 'perspective_section', 'perspective_impact', 'conceptual_framework', 'classification_schema'].includes(c.chunk_type));
+    const rich = pool.filter(c => ['task', 'technique', 'perspective_section', 'perspective_impact', 'perspective', 'conceptual_framework', 'classification_schema', 'overview', 'core_concept'].includes(getChunkType(c)));
     if (rich.length >= 5) pool = rich;
   }
 
   // Avoid repeating recently asked chunks
   const recentIds = new Set(session.history.slice(-session.dedupWindow).map(h => h.chunkId));
-  const fresh = pool.filter(c => !recentIds.has(c.chunk_id));
+  const fresh = pool.filter(c => !recentIds.has(getChunkId(c)));
   const pickFrom = fresh.length > 0 ? fresh : pool;
 
   const chunk = pickFrom[Math.floor(Math.random() * pickFrom.length)];
@@ -653,7 +850,7 @@ app.post('/api/train/question', async (req, res) => {
   // For level 5 (Synthesis), fetch a second related chunk - suppressed when topic is pinned
   let extraContext = '';
   if (currentLevel === 5 && !isPinnedTopic) {
-    const otherPool = trainableChunks.filter(c => c.chunk_id !== chunk.chunk_id && c.chunk_type !== chunk.chunk_type);
+    const otherPool = trainableChunks.filter(c => getChunkId(c) !== getChunkId(chunk) && getChunkType(c) !== getChunkType(chunk));
     if (otherPool.length > 0) {
       const extra = otherPool[Math.floor(Math.random() * otherPool.length)];
       extraContext = `\n\nAdditional related BABOK content:\nType: ${getChunkCategory(extra)}\nTopic: ${getChunkLabel(extra)}\n${extractReferenceText(extra)}`;
@@ -662,7 +859,7 @@ app.post('/api/train/question', async (req, res) => {
 
   // When pinned, tell GPT to stay on the selected topic
   const topicConstraint = isPinnedTopic
-    ? '\n\nIMPORTANT: ' + fillTemplate(PROMPTS.topicConstraint, { topic: getChunkLabel(chunk) })
+    ? '\n\nIMPORTANT: ' + fillTemplate(PROMPTS.topicConstraint, { topic: topicLabelOverride || getChunkLabel(chunk) })
     : '';
 
   try {
@@ -672,23 +869,33 @@ app.post('/api/train/question', async (req, res) => {
       messages: [
         {
           role: 'system',
-          content: `You are a BABOK® exam trainer. Complexity Level: ${currentLevel}/5 (${levelConfig.name}).\n\n${levelConfig.promptInstruction}`,
+          content: `You are a BABOK® exam trainer. Complexity Level: ${currentLevel}/6 (${levelConfig.name}).\n\n${levelConfig.promptInstruction}`,
         },
         {
           role: 'user',
           content: (() => {
-            // Count how many times each aspect has been asked for this chunk in this session
-            const chunkHistory = session.history.filter(h => h.chunkId === chunk.chunk_id);
-            const aspectCounts = {};
-            ASPECTS.forEach(a => { aspectCounts[a.key] = 0; });
-            chunkHistory.forEach(h => { if (h.aspect && aspectCounts[h.aspect] !== undefined) aspectCounts[h.aspect]++; });
-            // Pick the aspect asked least often (rotate in order on ties)
-            const minCount = Math.min(...Object.values(aspectCounts));
-            const candidates = ASPECTS.filter(a => aspectCounts[a.key] === minCount);
-            const aspect = candidates[chunkHistory.length % candidates.length];
+            // Rotate question angle by chunk type across session to avoid repetitive "main goal" stems.
+            const chunkType = getChunkType(chunk);
+            const candidates = getAspectCandidatesForType(chunkType);
+            if (!session.aspectUsageByType) session.aspectUsageByType = {};
+            if (!session.aspectUsageByType[chunkType]) session.aspectUsageByType[chunkType] = {};
+            const usage = session.aspectUsageByType[chunkType];
+            candidates.forEach((a) => {
+              if (typeof usage[a.key] !== 'number') usage[a.key] = 0;
+            });
+            const minCount = Math.min(...candidates.map((a) => usage[a.key]));
+            const leastUsed = candidates.filter((a) => usage[a.key] === minCount);
+            const aspect = leastUsed[session.stats.asked % leastUsed.length];
+            usage[aspect.key] += 1;
+
+            const level1StemDirective = currentLevel === 1
+              ? `\nStem diversity directive: ${LEVEL1_STEM_VARIANTS[session.stats.asked % LEVEL1_STEM_VARIANTS.length]} Never start every question with \"What is the main goal/purpose of ...\"; vary openings.`
+              : '';
+
             // Store chosen aspect on session so evaluate can save it to history
             session.currentAspect = aspect.key;
-            return `Generate a training question based on this BABOK content:\n\nType: ${getChunkCategory(chunk)}\nTopic: ${getChunkLabel(chunk)}\n\n${referenceText}${extraContext}${topicConstraint}\n\nFocus instruction: ${aspect.instruction} Do NOT ask about the general purpose or definition if those aspects have already been covered — vary the angle.`;
+            session.currentAspectType = chunkType;
+            return `Generate a training question based on this BABOK content:\n\nType: ${getChunkCategory(chunk)}\nTopic: ${getChunkLabel(chunk)}\n\n${referenceText}${extraContext}${topicConstraint}\n\nFocus instruction: ${aspect.instruction} Do NOT ask about the general purpose or definition if those aspects have already been covered — vary the angle.${level1StemDirective}`;
           })(),
         },
       ],
@@ -911,9 +1118,10 @@ app.post('/api/train/evaluate', async (req, res) => {
 
   // Store in history
   session.history.push({
-    chunkId: chunk.chunk_id,
+    chunkId: getChunkId(chunk),
     question,
     aspect: session.currentAspect || null,
+    aspectType: session.currentAspectType || null,
     userAnswer,
     score: overallScore,
     level: currentLevel,
@@ -926,6 +1134,7 @@ app.post('/api/train/evaluate', async (req, res) => {
   session.currentCorrectAnswer = null;
   session.currentCorrectAnswers = null;
   session.currentOptionExplanations = null;
+  session.currentAspectType = null;
 
   // Auto-progression: suggest level change when enabled (suggestLevel) and score exceeds thresholds
   let suggestedLevel = null;
