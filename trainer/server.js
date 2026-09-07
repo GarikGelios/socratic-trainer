@@ -222,6 +222,12 @@ CRITICAL RULES FOR QUESTION & OPTION WORDING:
 3. ABSOLUTE LENGTH SYMMETRY: All 4 options MUST be of almost IDENTICAL length (aim for 8–14 words per option). NEVER make the correct option longer, more descriptive, or more detailed than the distractors.
 4. GRAMMATICAL PARALLELISM: Every option must begin with the same part of speech (e.g., all starting with an active verb, all starting with a noun phrase, or all starting with a prepostional phrase).
 5. PLAUSIBLE DISTRACTORS: Distractors must use real BABOK terminology and be fully realized concepts—do NOT use short, lazy, or one-word distractors.
+BABOK DOMAIN GUARDRAILS (MANDATORY — violations cause factually wrong questions):
+G1. CANONICAL OUTPUTS: If the question tests Outputs, the ONLY correct answer is the exact output listed in the provided 'Outputs:' section. Never blend outputs from related or downstream tasks.
+G2. CANONICAL STAKEHOLDERS: If the question tests Stakeholders, every correct option MUST appear verbatim in the provided 'Stakeholders:' section. Never mark a listed stakeholder as wrong, and never invent roles not on the list.
+G3. CANONICAL INPUTS: If the question tests Inputs, options must be drawn only from the provided 'Inputs:' section.
+G4. STRUCTURAL LABELS: Frame question stems using official BABOK section titles: Purpose, Description, Inputs, Elements, Guidelines and Tools, Techniques, Stakeholders, or Outputs.
+G5. NO HALLUCINATION: If the provided context does not contain enough detail for an answer option, use a real BABOK term from a DIFFERENT section as a distractor — never invent terminology.
 Output Format EXACTLY as:
 QUESTION: [Stem text]
 A) [Option A]
@@ -239,6 +245,7 @@ EXPLANATION: [BABOK v3 citation and rationale]`,
     name: 'Multi-Select',
     description: 'Select all correct options — 2 or more right answers from a list',
     promptInstruction: `Generate ONE question with 6 options (A–F) where 2 to 4 options are correct. Ask the student to identify all applicable BABOK elements/actions for a specific context.
+BABOK DOMAIN GUARDRAILS: Derive correct options STRICTLY from the provided context. For Stakeholders questions use ONLY roles listed in the 'Stakeholders:' section. For Outputs/Inputs questions use ONLY values listed in the respective section. Never fabricate BABOK terminology.
 
 Output Format EXACTLY as:
 QUESTION: [Stem text]
@@ -318,7 +325,7 @@ Provide a detailed breakdown with actionable feedback to help the user pass real
 // CONFIGURABLE CONSTANTS — overridable via trainer-config.json / trainer-prompts.json
 // ============================================================================
 
-// Display labels for Pinecone chunk_type values
+// Display labels for Pinecone doc_type values (aligned with chunker/PARSER_SPEC.md's 8 schema families)
 const CHUNK_CATEGORY_LABELS = {
   task:                   'Knowledge Area Task',
   technique:              'Technique',
@@ -327,49 +334,45 @@ const CHUNK_CATEGORY_LABELS = {
   competency:             'Underlying Competency',
   perspective:            'Perspective',
   glossary:               'Glossary Term',
-  overview:               'Overview',
-  core_concept:           'Core Concept',
-  glossary_term:          'Glossary Term',
-  key_term:               'Key Term',
-  stakeholder_role:       'Stakeholder Role',
-  conceptual_framework:   'Core Concept',
-  classification_schema:  'Classification',
-  conceptual_explanation: 'Concept',
-  perspective_section:    'Perspective',
-  perspective_impact:     'Perspective Impact',
-  perspective_table:      'Perspective Table',
+  overview:               'Overview & Core Concepts',
 };
 
-// Question-angle rotation — 7 aspects cycled by chunk type across the session to prevent repetition
+// Question-angle rotation — aspects cycled by doc_type across the session to prevent repetition
 const ASPECTS = [
-  { key: 'purpose',      instruction: 'Ask about the PURPOSE or primary objective of this task.' },
-  { key: 'elements',     instruction: 'Ask about the KEY ELEMENTS or components described for this task.' },
-  { key: 'techniques',   instruction: 'Ask about the TECHNIQUES used or recommended for this task.' },
-  { key: 'inputs',       instruction: 'Ask about the INPUTS required by this task and where they come from.' },
-  { key: 'outputs',      instruction: 'Ask about the OUTPUTS produced by this task and how they are used.' },
-  { key: 'stakeholders', instruction: 'Ask about the STAKEHOLDERS involved in or affected by this task and their roles.' },
-  { key: 'application',  instruction: 'Ask about a practical situation where this task would be applied or how it is performed.' },
+  { key: 'purpose',                instruction: 'Ask about the PURPOSE or primary objective of this task.' },
+  { key: 'elements',               instruction: 'Ask about the KEY ELEMENTS or components described for this content.' },
+  { key: 'techniques',             instruction: 'Ask about the TECHNIQUES used or recommended for this task.' },
+  { key: 'inputs',                 instruction: 'Ask about the INPUTS required by this task and where they come from.' },
+  { key: 'outputs',                instruction: 'Ask about the OUTPUTS produced by this task and how they are used.' },
+  { key: 'stakeholders',           instruction: 'Ask about the STAKEHOLDERS involved in or affected by this task and their roles.' },
+  { key: 'guidelines_and_tools',   instruction: 'Ask about the GUIDELINES AND TOOLS that inform or constrain how this task is performed.' },
+  { key: 'application',            instruction: 'Ask about a practical situation where this concept would be applied or how it is performed.' },
+  { key: 'limitations_strengths',  instruction: 'Ask about the STRENGTHS or LIMITATIONS of using this technique in a given context.' },
+  { key: 'technique_usage',        instruction: 'Ask which Knowledge Area(s) this technique is used in and why it fits that context.' },
+  { key: 'task_association',      instruction: 'Ask which specific BABOK task(s) this technique supports and how it contributes to that task.' },
+  { key: 'multi_task_mapping',     instruction: 'Ask the student to identify ALL tasks across different Knowledge Areas that use this technique.' },
+  { key: 'upstream_downstream',    instruction: 'Ask about the UPSTREAM or DOWNSTREAM task relationship — which task supplies this input, or which task consumes this output next.' },
+  { key: 'definition',             instruction: 'Ask the student to define this term or competency precisely in BABOK terms.' },
+  { key: 'effectiveness_measures', instruction: 'Ask how the EFFECTIVENESS of this competency is measured or demonstrated.' },
+  { key: 'change_scope',           instruction: 'Ask about the CHANGE SCOPE (breadth/depth of change) relevant to this perspective.' },
+  { key: 'impact_on_kas',          instruction: 'Ask about how this perspective IMPACTS a specific Knowledge Area or task execution.' },
+  { key: 'methodologies',          instruction: 'Ask about the METHODOLOGIES, APPROACHES, OR TECHNIQUES associated with this perspective.' },
+  { key: 'underlying_competencies',instruction: 'Ask about the UNDERLYING COMPETENCIES emphasized within this perspective.' },
+  { key: 'baccm_concepts',         instruction: 'Ask about one of the six BACCM™ core concepts (Change, Need, Solution, Stakeholder, Value, Context) and its relationship to the others.' },
+  { key: 'classification_schema',  instruction: 'Ask about the REQUIREMENTS CLASSIFICATION SCHEMA and how a given requirement type is distinguished from the others.' },
+  { key: 'key_terms',              instruction: 'Ask about the definition or correct usage of a key BABOK term introduced in this chapter.' },
 ];
 
+// Preferred aspect rotation per doc_type (falls back to ASPECT_KEYS_BY_TYPE.task when a type is unrecognized)
 const ASPECT_KEYS_BY_TYPE = {
-  task: ['purpose', 'elements', 'techniques', 'inputs', 'outputs', 'stakeholders', 'application'],
-  technique: ['elements', 'techniques', 'application', 'purpose'],
-  technique_task_mapping: ['techniques', 'application', 'inputs', 'outputs'],
-  task_task_mapping: ['inputs', 'outputs', 'stakeholders', 'application'],
-  glossary: ['application', 'elements'],
-  glossary_term: ['application', 'elements'],
-  key_term: ['application', 'elements'],
-  stakeholder_role: ['stakeholders', 'application'],
-  competency: ['application', 'elements'],
-  conceptual_framework: ['elements', 'application'],
-  classification_schema: ['elements', 'application'],
-  conceptual_explanation: ['elements', 'application'],
-  overview: ['elements', 'application'],
-  core_concept: ['elements', 'application'],
-  perspective: ['application', 'stakeholders', 'elements'],
-  perspective_section: ['application', 'stakeholders', 'elements'],
-  perspective_impact: ['application', 'stakeholders', 'outputs'],
-  perspective_table: ['elements', 'application'],
+  task:                   ['purpose', 'elements', 'techniques', 'inputs', 'outputs', 'stakeholders', 'guidelines_and_tools', 'application'],
+  technique:              ['purpose', 'elements', 'application', 'limitations_strengths'],
+  technique_task_mapping: ['technique_usage', 'task_association', 'multi_task_mapping'],
+  task_task_mapping:      ['inputs', 'outputs', 'upstream_downstream', 'guidelines_and_tools'],
+  competency:             ['purpose', 'definition', 'effectiveness_measures', 'application'],
+  perspective:            ['change_scope', 'impact_on_kas', 'methodologies', 'underlying_competencies'],
+  glossary:               ['definition', 'application'],
+  overview:               ['baccm_concepts', 'classification_schema', 'key_terms', 'application'],
 };
 
 const LEVEL1_STEM_VARIANTS = [
@@ -386,6 +389,56 @@ function getAspectCandidatesForType(type) {
   const preferred = preferredKeys.map((k) => aspectByKey.get(k)).filter(Boolean);
   return preferred.length > 0 ? preferred : ASPECTS;
 }
+
+// competency:<token> topic values -> substring match against chunk.competency_category (e.g. "9.1 Analytical Thinking and Problem Solving")
+const COMPETENCY_CATEGORY_KEYWORDS = {
+  'analytical-thinking':         'Analytical Thinking',
+  'behavioural-characteristics': 'Behavioural Characteristics',
+  'business-knowledge':         'Business Knowledge',
+  'communication-skills':       'Communication Skills',
+  'interaction-skills':         'Interaction Skills',
+  'tools-and-technology':       'Tools and Technology',
+};
+
+// concept:<token> topic values -> substring match against chunk.section_title within doc_type "overview"
+const CONCEPT_SECTION_KEYWORDS = {
+  'baccm':                         'Core Concept Model',
+  'requirements-classification':   'Requirements Classification',
+};
+
+// drill:<token> topic values -> CBAP specialist exam drills with a targeted chunk pool + LLM focus instruction
+const DRILL_DEFINITIONS = {
+  'drill:baccm-mapping': {
+    label: 'BACCM™ Core Concept Mapping',
+    poolFilter: (c) => getChunkType(c) === 'overview' && /core concept model/i.test(c.section_title || ''),
+    instruction: 'Focus this question on the BACCM™ (Business Analysis Core Concept Model): Change, Need, Solution, Stakeholder, Value, and Context. Test the student\'s understanding of how these six core concepts relate to and influence one another.',
+  },
+  'drill:input-output-lineage': {
+    label: 'Inputs & Outputs Lineage Drill',
+    poolFilter: (c) => getChunkType(c) === 'task_task_mapping',
+    instruction: 'Focus this question on tracing an artifact\'s lineage: identify which task PRODUCES a given output and which downstream task(s) consume it as an INPUT. Test cross-task input/output relationships, not single-task recall.',
+  },
+  'drill:guidelines-and-tools': {
+    label: 'Guidelines & Tools Matching Drill',
+    poolFilter: (c) => getChunkType(c) === 'task' && c.sub_section === 'Guidelines and Tools',
+    instruction: 'Focus this question on matching a specific Guideline or Tool to the correct BABOK task that uses it as an input to guide or constrain the task\'s execution.',
+  },
+  'drill:stakeholders': {
+    label: 'Task-to-Stakeholder Matrix Drill',
+    poolFilter: (c) => getChunkType(c) === 'task' && c.sub_section === 'Stakeholders',
+    instruction: 'Focus this question on matching stakeholder roles to the specific BABOK task(s) in which they participate or are affected, as if building a task-to-stakeholder responsibility matrix.',
+  },
+  'drill:technique-mapping': {
+    label: 'Technique-to-Task Mapping (Multi-Task Uses)',
+    poolFilter: (c) => getChunkType(c) === 'technique_task_mapping' && Array.isArray(c.mapped_task_ids) && c.mapped_task_ids.length > 1,
+    instruction: 'Focus this question on a technique that is used across MULTIPLE tasks or Knowledge Areas. Test whether the student can identify all applicable tasks/knowledge areas where this technique applies.',
+  },
+  'drill:financial-calculations': {
+    label: 'Financial & Quantitative Analysis (ROI, NPV, TCO)',
+    poolFilter: (c) => getChunkType(c) === 'technique' && c.technique_name === 'Financial Analysis',
+    instruction: 'Generate a quantitative business scenario requiring the student to apply Financial Analysis concepts (e.g., ROI, NPV, Total Cost of Ownership, payback period, cost-benefit comparison). Include realistic numbers where relevant and require the student to interpret or calculate a financial outcome to make a BA recommendation.',
+  },
+};
 
 // Auto-progression score thresholds (out of 10)
 const TRAINING_CONFIG = {
@@ -488,28 +541,15 @@ async function retrieveContext(question) {
     const fullChunk = chunkMap.get(match.id);
     if (!fullChunk) return { id: match.id, score: match.score, text: '(not found)' };
 
-    const parts = [];
-    if (fullChunk.purpose) parts.push(`Purpose: ${fullChunk.purpose}`);
-    if (fullChunk.description) parts.push(`Description: ${fullChunk.description}`);
-    if (fullChunk.definition) parts.push(`${fullChunk.term}: ${fullChunk.definition}`);
-    if (fullChunk.explanation) parts.push(`Explanation: ${fullChunk.explanation}`);
-    if (fullChunk.content?.overview) parts.push(`Overview: ${fullChunk.content.overview}`);
-
-    if (fullChunk.elements?.length) {
-      parts.push('Elements:');
-      fullChunk.elements.forEach(e => parts.push(`  - ${e.title}: ${(e.description || '').substring(0, 200)}`));
-    }
-    if (fullChunk.techniques?.length) {
-      parts.push('Techniques: ' + fullChunk.techniques.map(t => t.title || t.name).join(', '));
-    }
-
+    // Use the pre-built text field from the new chunker schema when available
+    const chunkText = fullChunk.text || extractReferenceText(fullChunk);
     const meta = match.metadata || {};
     return {
       id: match.id,
       score: match.score,
       type: getMetaType(meta, fullChunk),
       label: getMetaLabel(meta, fullChunk),
-      text: parts.join('\n'),
+      text: chunkText,
     };
   });
 
@@ -616,16 +656,21 @@ app.get('/train', (_req, res) => {
   res.sendFile(path.join(__dirname, 'train.html'));
 });
 
-// Extract readable reference text from a chunk (the "correct answer" material)
+// Extract readable reference text from a chunk (the "correct answer" material).
+// Handles both the old nested schema and the new flat sub-chunk schema from the refactored chunker.
 function extractReferenceText(chunk) {
   const parts = [];
   const type = getChunkType(chunk);
 
   if (type === 'task') {
-    const id = chunk.identification || {};
-    const taskTitle = id.task_title || chunk.title || chunk.task_name;
-    const chapterTitle = id.chapter_title || chunk.chapter || '';
-    if (taskTitle) parts.push(`Task: ${taskTitle} (${chapterTitle})`);
+    const taskTitle = chunk.identification?.task_title || chunk.title || chunk.task_name;
+    const chapterTitle = chunk.identification?.chapter_title || chunk.chapter || '';
+    const sectionId = chunk.identification?.task_id || chunk.section_id || '';
+    if (taskTitle) parts.push(`Task ${sectionId} ${taskTitle} (${chapterTitle})`.trim());
+    // New flat sub-chunk schema
+    if (chunk.sub_section) parts.push(`Section: ${chunk.sub_section}`);
+    if (chunk.content) parts.push(chunk.content);
+    // Legacy nested schema
     if (chunk.purpose) parts.push(`Purpose: ${chunk.purpose}`);
     if (chunk.description) parts.push(`Description: ${chunk.description}`);
     if (chunk.elements?.length) {
@@ -639,8 +684,11 @@ function extractReferenceText(chunk) {
       parts.push('Stakeholders: ' + chunk.stakeholders.map(s => s.role || s).join(', '));
     }
   } else if (type === 'technique') {
-    const id = chunk.identification || {};
-    if (id.technique_title || chunk.technique_name) parts.push(`Technique: ${id.technique_title || chunk.technique_name}`);
+    const techniqueTitle = chunk.identification?.technique_title || chunk.technique_name;
+    const techniqueId = chunk.identification?.technique_num || chunk.technique_id || '';
+    if (techniqueTitle) parts.push(`Technique ${techniqueId} ${techniqueTitle}`.trim());
+    if (chunk.sub_section) parts.push(`Section: ${chunk.sub_section}`);
+    if (chunk.content) parts.push(chunk.content);
     if (chunk.purpose) parts.push(`Purpose: ${chunk.purpose}`);
     if (chunk.description) parts.push(`Description: ${chunk.description}`);
     if (chunk.elements?.length) {
@@ -653,6 +701,16 @@ function extractReferenceText(chunk) {
       if (chunk.usage_considerations.limitations?.length)
         parts.push('Limitations: ' + chunk.usage_considerations.limitations.join('; '));
     }
+  } else if (type === 'competency') {
+    if (chunk.competency_category || chunk.competency_name)
+      parts.push(`Competency: ${chunk.competency_category || ''} - ${chunk.competency_name || ''}`.trim());
+    if (chunk.sub_section) parts.push(`Section: ${chunk.sub_section}`);
+    if (chunk.content) parts.push(chunk.content);
+  } else if (type === 'technique_task_mapping') {
+    if (chunk.technique_name) parts.push(`Technique: ${chunk.technique_id || ''} ${chunk.technique_name}`.trim());
+    if (chunk.knowledge_areas?.length) parts.push('Knowledge Areas: ' + chunk.knowledge_areas.join('; '));
+    if (chunk.mapped_task_ids?.length) parts.push('Mapped Tasks: ' + chunk.mapped_task_ids.join(', '));
+    if (chunk.content) parts.push(chunk.content);
   } else if (type === 'glossary_term' || type === 'key_term' || type === 'glossary') {
     parts.push(`${chunk.term}: ${chunk.definition}`);
   } else if (type === 'stakeholder_role') {
@@ -672,11 +730,14 @@ function extractReferenceText(chunk) {
     if (chunk.key_principle) parts.push(`Key principle: ${chunk.key_principle}`);
     if (chunk.explanation) parts.push(chunk.explanation);
   } else if (type === 'perspective_section' || type === 'perspective') {
-    parts.push(`${chunk.perspective || chunk.perspective_name || 'Perspective'}${chunk.section ? ' - ' + chunk.section : ''}`);
+    const pName = chunk.perspective || chunk.perspective_name || 'Perspective';
+    const pSec  = chunk.sub_section || chunk.section || '';
+    parts.push(pSec ? `${pName} - ${pSec}` : pName);
     if (chunk.content) parts.push(typeof chunk.content === 'string' ? chunk.content : JSON.stringify(chunk.content));
   } else if (type === 'perspective_impact') {
     parts.push(`${chunk.perspective} Perspective - Impact on ${chunk.knowledge_area}`);
     if (chunk.description) parts.push(chunk.description);
+    if (chunk.content) parts.push(chunk.content);
   } else if (type === 'perspective_table') {
     parts.push(chunk.table_title || getChunkId(chunk));
     const items = chunk.approaches || chunk.techniques || chunk.methodologies || chunk.reference_models || [];
@@ -695,7 +756,8 @@ function extractReferenceText(chunk) {
     if (chunk.chapter || chunk.section_title) parts.push(`${chunk.chapter || 'Overview'} - ${chunk.section_title || 'Section'}`);
     if (chunk.content) parts.push(chunk.content);
   } else {
-    parts.push(JSON.stringify(chunk).substring(0, 1000));
+    // Last-resort fallback: prefer the pre-built text field from the new chunker schema
+    parts.push(chunk.text || JSON.stringify(chunk).substring(0, 1000));
   }
 
   return parts.filter(Boolean).join('\n');
@@ -704,16 +766,27 @@ function extractReferenceText(chunk) {
 // Get a human-readable label for the chunk topic
 function getChunkLabel(chunk) {
   const type = getChunkType(chunk);
-  if (type === 'task') return chunk.identification?.task_title || chunk.title || chunk.task_name || getChunkId(chunk);
-  if (type === 'technique') return chunk.identification?.technique_title || chunk.technique_name || getChunkId(chunk);
+  if (type === 'task') {
+    const base = chunk.identification?.task_title || chunk.title || chunk.task_name || getChunkId(chunk);
+    return chunk.sub_section ? `${base} — ${chunk.sub_section}` : base;
+  }
+  if (type === 'technique') {
+    const base = chunk.identification?.technique_title || chunk.technique_name || getChunkId(chunk);
+    return chunk.sub_section ? `${base} — ${chunk.sub_section}` : base;
+  }
+  if (type === 'competency')         return chunk.competency_name || chunk.competency_category || getChunkId(chunk);
+  if (type === 'technique_task_mapping') return chunk.technique_name || getChunkId(chunk);
   if (type === 'glossary_term' || type === 'key_term' || type === 'glossary') return chunk.term || getChunkId(chunk);
-  if (type === 'stakeholder_role') return chunk.role_name;
+  if (type === 'stakeholder_role')   return chunk.role_name;
   if (type === 'conceptual_framework' || type === 'classification_schema' || type === 'conceptual_explanation') return chunk.title;
   if (type === 'overview' || type === 'core_concept') return chunk.section_title || chunk.title || getChunkId(chunk);
-  if (type === 'task_task_mapping') return chunk.task_name || chunk.task_id || getChunkId(chunk);
+  if (type === 'task_task_mapping')  return chunk.task_name || chunk.task_id || getChunkId(chunk);
   if (type === 'perspective_section') return `${chunk.perspective} - ${chunk.section}`;
   if (type === 'perspective_impact') return `${chunk.perspective} - ${chunk.knowledge_area}`;
-  if (type === 'perspective_table' || type === 'perspective') return chunk.table_title || chunk.perspective_name || getChunkId(chunk);
+  if (type === 'perspective_table' || type === 'perspective') {
+    const base = chunk.perspective_name || chunk.table_title || getChunkId(chunk);
+    return chunk.sub_section ? `${base} — ${chunk.sub_section}` : base;
+  }
   return getChunkId(chunk);
 }
 
@@ -721,6 +794,77 @@ function getChunkLabel(chunk) {
 function getChunkCategory(chunk) {
   const type = getChunkType(chunk);
   return CHUNK_CATEGORY_LABELS[type] || type || 'Unknown';
+}
+
+/**
+ * Build comprehensive question-generation context for a chunk.
+ * For task chunks: aggregates all sub-section chunks for the same task (section_id)
+ * so GPT sees complete Purpose/Inputs/Outputs/Stakeholders in one block.
+ * For all other types: delegates to extractReferenceText.
+ */
+function buildQuestionContext(chunk) {
+  const type = getChunkType(chunk);
+  const sectionId = chunk.section_id;
+
+  if (type !== 'task' || !sectionId) return extractReferenceText(chunk);
+
+  const SECTION_ORDER = ['Purpose', 'Description', 'Inputs', 'Elements', 'Guidelines and Tools', 'Techniques', 'Stakeholders', 'Outputs'];
+
+  // Collect all sub-chunks for this task from the loaded chunk map
+  const siblings = [];
+  for (const [, c] of chunkMap) {
+    if (getChunkType(c) === 'task' && c.section_id === sectionId) siblings.push(c);
+  }
+
+  if (siblings.length <= 1) return extractReferenceText(chunk);
+
+  siblings.sort((a, b) => {
+    const ai = SECTION_ORDER.indexOf(a.sub_section);
+    const bi = SECTION_ORDER.indexOf(b.sub_section);
+    return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+  });
+
+  const taskTitle = chunk.title || chunk.task_name || '';
+  const chapter   = chunk.chapter || '';
+  const lines = [`Task ${sectionId} ${taskTitle} (${chapter})`.trim()];
+  for (const s of siblings) {
+    if (s.sub_section && s.content) lines.push(`\n${s.sub_section}:\n${s.content}`);
+  }
+  return lines.join('\n');
+}
+
+/**
+ * Inject canonical BABOK values for structured aspects to ground the GPT question.
+ * Returns an empty string when no matching sub-chunk is found.
+ */
+function buildCanonicalGuardrail(chunk, aspect) {
+  const aspectToSection = {
+    outputs:               'Outputs',
+    inputs:                'Inputs',
+    stakeholders:          'Stakeholders',
+    guidelines_and_tools:  'Guidelines and Tools',
+  };
+  const subSectionName = aspectToSection[aspect];
+  if (!subSectionName) return '';
+
+  const sectionId = chunk.section_id;
+  if (!sectionId) return '';
+
+  // Find the specific sub-chunk for this aspect
+  let targetChunk = null;
+  if (chunk.sub_section === subSectionName) {
+    targetChunk = chunk;
+  } else {
+    for (const [, c] of chunkMap) {
+      if (getChunkType(c) === 'task' && c.section_id === sectionId && c.sub_section === subSectionName) {
+        targetChunk = c;
+        break;
+      }
+    }
+  }
+
+  if (!targetChunk?.content) return '';
+  return `\n\n⚠️  CANONICAL ${subSectionName.toUpperCase()} — use ONLY these values as correct options; distractors must be plausible BABOK terms from OTHER tasks, not fabricated:\n${targetChunk.content}`;
 }
 
 // Generate a training question
@@ -760,14 +904,54 @@ app.post('/api/train/question', async (req, res) => {
 
   // Pick a chunk: filter by topic if provided, else random
   let pool = trainableChunks;
+  let relatedContextPool = null;
   let topicLabelOverride = null;
+  let drillInstruction = '';
   if (topic && typeof topic === 'string') {
     const t = topic.toLowerCase();
     if (t.startsWith('chapter:')) {
       const chapterNum = parseInt(t.split(':')[1], 10);
+      if (chapterNum === 1) {
+        // Chapter 1: Introduction — doc_type "overview"
+        pool = trainableChunks.filter(c => getChunkType(c) === 'overview' && getChunkChapterNum(c) === 1);
+      } else if (chapterNum === 9) {
+        // Chapter 9: Underlying Competencies — doc_type "competency"
+        pool = trainableChunks.filter(c => getChunkType(c) === 'competency');
+      } else if (chapterNum === 11) {
+        // Chapter 11: Perspectives — doc_type "perspective"
+        pool = trainableChunks.filter(c => getChunkType(c) === 'perspective');
+      } else {
+        pool = trainableChunks.filter(c =>
+          getChunkType(c) === 'task' && getChunkChapterNum(c) === chapterNum
+        );
+      }
+    } else if (t.startsWith('concept:')) {
+      const token = t.split(':')[1];
+      const keyword = CONCEPT_SECTION_KEYWORDS[token];
       pool = trainableChunks.filter(c =>
-        getChunkType(c) === 'task' && getChunkChapterNum(c) === chapterNum
+        getChunkType(c) === 'overview' && keyword && (c.section_title || '').includes(keyword)
       );
+      topicLabelOverride = pool[0] ? pool[0].section_title : token;
+    } else if (t.startsWith('competency:')) {
+      const token = t.split(':')[1];
+      const keyword = COMPETENCY_CATEGORY_KEYWORDS[token];
+      pool = trainableChunks.filter(c =>
+        getChunkType(c) === 'competency' && keyword && (c.competency_category || '').includes(keyword)
+      );
+      topicLabelOverride = pool[0] ? pool[0].competency_category : token;
+    } else if (t.startsWith('perspective:')) {
+      const token = t.split(':')[1];
+      pool = trainableChunks.filter(c =>
+        getChunkType(c) === 'perspective' && slugifyTaskLabel(c.perspective_name) === token
+      );
+      topicLabelOverride = pool[0] ? pool[0].perspective_name : token;
+    } else if (t.startsWith('drill:')) {
+      const drill = DRILL_DEFINITIONS[t];
+      if (drill) {
+        pool = trainableChunks.filter(drill.poolFilter);
+        drillInstruction = drill.instruction;
+        topicLabelOverride = drill.label;
+      }
     } else if (t.startsWith('task:')) {
       const taskToken = t.split(':')[1];
       const selectedTaskChunks = trainableChunks.filter(c =>
@@ -813,26 +997,42 @@ app.post('/api/train/question', async (req, res) => {
         });
 
       pool = Array.from(poolById.values());
+      relatedContextPool = pool.slice();
       topicLabelOverride = selectedTaskChunks.length > 0 ? getChunkLabel(selectedTaskChunks[0]) : `Task ${taskToken}`;
     } else {
       pool = trainableChunks.filter(c => {
         const type = getChunkType(c);
         if (t === 'tasks') return type === 'task';
         if (t === 'techniques') return type === 'technique';
-        if (t === 'glossary') return type === 'glossary_term' || type === 'glossary';
-        if (t === 'stakeholders') return type === 'stakeholder_role';
-        if (t === 'concepts') return ['key_term', 'conceptual_framework', 'classification_schema', 'conceptual_explanation', 'overview', 'core_concept'].includes(type);
-        if (t === 'perspectives') return type.startsWith('perspective') || type === 'perspective';
+        if (t === 'glossary') return type === 'glossary';
+        if (t === 'concepts') return type === 'overview';
         return true;
       });
     }
     if (pool.length === 0) pool = trainableChunks;
   }
 
-  // For higher levels, prefer richer content (tasks, techniques, perspectives)
+  // For higher levels, prefer richer content (tasks, techniques, mappings, perspectives, competencies)
   if (currentLevel >= 5) {
-    const rich = pool.filter(c => ['task', 'technique', 'perspective_section', 'perspective_impact', 'perspective', 'conceptual_framework', 'classification_schema', 'overview', 'core_concept'].includes(getChunkType(c)));
-    if (rich.length >= 5) pool = rich;
+    const richTypes = [
+      'task',
+      'technique',
+      'technique_task_mapping',
+      'task_task_mapping',
+      'competency',
+      'perspective',
+      'overview',
+    ];
+    const rich = pool.filter(c => richTypes.includes(getChunkType(c)));
+
+    // Keep mapping in play for advanced levels even with small topic-constrained pools.
+    if (rich.length > 0 && rich.length >= Math.min(5, pool.length)) {
+      pool = rich;
+      if (relatedContextPool) {
+        const richIds = new Set(rich.map(c => getChunkId(c)).filter(Boolean));
+        relatedContextPool = relatedContextPool.filter(c => richIds.has(getChunkId(c)));
+      }
+    }
   }
 
   // Avoid repeating recently asked chunks
@@ -841,16 +1041,18 @@ app.post('/api/train/question', async (req, res) => {
   const pickFrom = fresh.length > 0 ? fresh : pool;
 
   const chunk = pickFrom[Math.floor(Math.random() * pickFrom.length)];
-  const referenceText = extractReferenceText(chunk);
+  // Aggregate all sub-sections for the same task to give GPT complete BABOK context
+  const referenceText = buildQuestionContext(chunk);
 
-  // True when user pinned to a specific task or chapter (prevents off-topic GPT questions)
+  // True when user pinned to a specific task/chapter/concept/competency/perspective/drill (prevents off-topic GPT questions)
   const isPinnedTopic = topic && typeof topic === 'string' &&
-    (topic.toLowerCase().startsWith('task:') || topic.toLowerCase().startsWith('chapter:'));
+    /^(task:|chapter:|concept:|competency:|perspective:|drill:)/.test(topic.toLowerCase());
 
-  // For level 5 (Synthesis), fetch a second related chunk - suppressed when topic is pinned
+  // For level 5 (Analysis), fetch a second related chunk - suppressed when topic is pinned
   let extraContext = '';
   if (currentLevel === 5 && !isPinnedTopic) {
-    const otherPool = trainableChunks.filter(c => getChunkId(c) !== getChunkId(chunk) && getChunkType(c) !== getChunkType(chunk));
+    const sourcePool = (relatedContextPool && relatedContextPool.length > 0) ? relatedContextPool : pool;
+    const otherPool = sourcePool.filter(c => getChunkId(c) !== getChunkId(chunk) && getChunkType(c) !== getChunkType(chunk));
     if (otherPool.length > 0) {
       const extra = otherPool[Math.floor(Math.random() * otherPool.length)];
       extraContext = `\n\nAdditional related BABOK content:\nType: ${getChunkCategory(extra)}\nTopic: ${getChunkLabel(extra)}\n${extractReferenceText(extra)}`;
@@ -895,7 +1097,14 @@ app.post('/api/train/question', async (req, res) => {
             // Store chosen aspect on session so evaluate can save it to history
             session.currentAspect = aspect.key;
             session.currentAspectType = chunkType;
-            return `Generate a training question based on this BABOK content:\n\nType: ${getChunkCategory(chunk)}\nTopic: ${getChunkLabel(chunk)}\n\n${referenceText}${extraContext}${topicConstraint}\n\nFocus instruction: ${aspect.instruction} Do NOT ask about the general purpose or definition if those aspects have already been covered — vary the angle.${level1StemDirective}`;
+
+            // Inject canonical values for structured aspects to prevent hallucination
+            const canonicalGuardrail = buildCanonicalGuardrail(chunk, aspect.key);
+
+            // Drill mode overrides the rotated aspect with a targeted CBAP focus instruction
+            const focusInstruction = drillInstruction || aspect.instruction;
+
+            return `Generate a training question based on this BABOK content:\n\nType: ${getChunkCategory(chunk)}\nTopic: ${getChunkLabel(chunk)}\n\n${referenceText}${canonicalGuardrail}${extraContext}${topicConstraint}\n\nFocus instruction: ${focusInstruction} Do NOT ask about the general purpose or definition if those aspects have already been covered — vary the angle.${level1StemDirective}`;
           })(),
         },
       ],

@@ -15,32 +15,38 @@
   },
   "levels": {
     "1": {
-      "name": "Knowledge",
+      "name": "Recognition",
+      "description": "Multiple choice — pick the correct option",
       "maxTokensQ": 350,
       "maxTokensE": 400
     },
     "2": {
       "name": "Multi-Select",
+      "description": "Select all correct options — 2 or more right answers from a list",
       "maxTokensQ": 700,
       "maxTokensE": 500
     },
     "3": {
       "name": "Understanding",
+      "description": "One-sentence answer — define or explain the purpose",
       "maxTokensQ": 200,
       "maxTokensE": 300
     },
     "4": {
       "name": "Application",
+      "description": "Short structured answer — describe elements, list steps, explain usage",
       "maxTokensQ": 200,
       "maxTokensE": 1200
     },
     "5": {
       "name": "Analysis",
+      "description": "Compare, contrast, and explain relationships between BABOK elements",
       "maxTokensQ": 250,
       "maxTokensE": 1500
     },
     "6": {
       "name": "Synthesis",
+      "description": "Scenario-based — design a BA approach using multiple BABOK concepts",
       "maxTokensQ": 350,
       "maxTokensE": 2000
     }
@@ -78,6 +84,13 @@
   "chunkCategoryLabels": {
     "task": "Knowledge Area Task",
     "technique": "Technique",
+    "technique_task_mapping": "Technique-to-Task Mapping",
+    "task_task_mapping": "Task Relationship Mapping",
+    "competency": "Underlying Competency",
+    "perspective": "Perspective",
+    "glossary": "Glossary Term",
+    "overview": "Overview",
+    "core_concept": "Core Concept",
     "glossary_term": "Glossary Term",
     "key_term": "Key Term",
     "stakeholder_role": "Stakeholder Role",
