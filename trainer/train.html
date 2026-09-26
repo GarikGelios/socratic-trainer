@@ -238,11 +238,13 @@
     }
 
     /* ── SETTINGS MODAL ── */
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
     .cfg-btn {
-      margin-left: auto; background: rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.15);
       border: 1px solid rgba(255,255,255,0.3); color: #fff;
       border-radius: 8px; padding: 6px 11px; font-size: 19px;
       cursor: pointer; line-height: 1; flex-shrink: 0; transition: background 0.15s;
+      display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
     }
     .cfg-btn:hover { background: rgba(255,255,255,0.28); }
 
@@ -331,7 +333,10 @@
   <header>
     <h1>BABOK® Training</h1>
     <span class="badge">PRACTICE</span>
-    <button class="cfg-btn" onclick="openCfg()" title="AI &amp; Trainer Settings">🤖</button>
+    <div class="header-actions">
+      <a class="cfg-btn" href="/chat" title="Open chat" aria-label="Open chat">🗨️</a>
+      <button class="cfg-btn" onclick="openCfg()" title="AI &amp; Trainer Settings" aria-label="AI &amp; Trainer Settings">🤖</button>
+    </div>
   </header>
 
   <div class="stats-bar" id="stats-bar">

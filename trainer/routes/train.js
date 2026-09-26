@@ -13,8 +13,12 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
   const { getAspectCandidatesForType, LEVEL1_STEM_VARIANTS } = aspectRotation;
   const { selectChunkPool } = topicPools;
 
-  router.get('/train', (_req, res) => {
+  router.get('/', (_req, res) => {
     res.sendFile(path.join(__dirname, '..', 'train.html'));
+  });
+
+  router.get('/train', (_req, res) => {
+    res.redirect('/');
   });
 
   router.post('/api/train/question', async (req, res) => {

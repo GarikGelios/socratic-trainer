@@ -1,4 +1,4 @@
-// Chat mode: serves the chat UI and the RAG-powered /api/chat + /api/reset endpoints.
+// Chat mode: serves /chat and the RAG-powered /api/chat + /api/reset endpoints.
 const express = require('express');
 const path = require('path');
 const { sessions, generateSessionId } = require('../lib/sessionStore');
@@ -8,7 +8,7 @@ function createChatRouter({ openai, config, retrieveContext, buildContextText })
   const router = express.Router();
   const { CONFIG, PROMPTS } = config;
 
-  router.get('/', (_req, res) => {
+  router.get('/chat', (_req, res) => {
     res.sendFile(path.join(__dirname, '..', 'chat.html'));
   });
 

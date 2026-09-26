@@ -14,8 +14,8 @@
 //   POST /api/chat            — send a message, get a RAG-powered answer
 //   POST /api/train/question  — get a BABOK training question
 //   POST /api/train/evaluate  — evaluate user's answer against BABOK
-//   GET  /                    — serves the chat UI
-//   GET  /train               — serves the training UI
+//   GET  /                    — serves the training UI
+//   GET  /chat                — serves the chat UI
 
 require('dotenv').config();
 const express = require('express');
@@ -66,8 +66,8 @@ app.use(createConfigRouter({ config }));
 
 app.listen(CONFIG.port, () => {
   console.log(`\n🚀 BABOK Chat API running at http://localhost:${CONFIG.port}`);
-  console.log(`   GET  /          — chat UI`);
-  console.log(`   GET  /train     — training mode UI`);
+  console.log(`   GET  /          — training mode UI`);
+  console.log(`   GET  /chat      — chat UI`);
   console.log(`   POST /api/chat  — send { "message": "your question" }`);
   console.log(`   POST /api/train/question — get a training question`);
   console.log(`   POST /api/train/evaluate — evaluate your answer`);

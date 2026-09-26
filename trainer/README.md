@@ -12,7 +12,7 @@ trainer/server.js
   -> creates OpenAI and Pinecone clients
   -> loads chunker/embeddings-chunks.jsonl
   -> wires logic modules into Express routers
-  -> serves chat.html and train.html
+   -> serves train.html at / and chat.html at /chat
 ```
 
 The chat and training pages call the API endpoints. Route handlers validate requests, call application logic, and return JSON responses. Business rules and chunk operations are separated into `lib/` modules so they can be inspected and tested independently of Express.
@@ -25,8 +25,8 @@ The chat and training pages call the API endpoints. Route handlers validate requ
 | `config/index.js` | Reads the two JSON settings files and exposes shared in-memory settings; persists updates from the Settings API. |
 | `trainer-config.json` | Server settings, training thresholds, level names/token limits, aspect rotation entries, and chunk display labels. |
 | `trainer-prompts.json` | Chat and feedback templates plus level question/evaluation instructions. |
-| `routes/chat.js` | Chat page and chat/reset API routes. |
-| `routes/train.js` | Training page and question/evaluation/reset API routes. |
+| `routes/chat.js` | Chat page at `/chat` and chat/reset API routes. |
+| `routes/train.js` | Trainer page at `/` and question/evaluation/reset API routes. `/train` redirects to `/`. |
 | `routes/configRoutes.js` | Settings API used by the training page's Settings panel. |
 | `lib/chunkStore.js` | Loads JSONL chunks and filters out chunks unsuitable for training. |
 | `lib/chunkAccessors.js` | Reads common identity and classification fields from chunk objects. |
@@ -56,10 +56,11 @@ The checked-in JSON files are the application source of truth; the server code d
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/` | Serve chat UI. |
+| `GET` | `/` | Serve trainer UI. |
+| `GET` | `/chat` | Serve chat UI. |
 | `POST` | `/api/chat` | Retrieve BABOK context and generate a chat answer. |
 | `POST` | `/api/reset` | Clear chat session history. |
-| `GET` | `/train` | Serve training UI. |
+| `GET` | `/train` | Redirect to the trainer UI at `/` (legacy route). |
 | `POST` | `/api/train/question` | Choose a chunk and generate a question for the requested level/topic. |
 | `POST` | `/api/train/evaluate` | Score the pending answer and update session statistics. |
 | `POST` | `/api/train/reset` | Clear training session state. |
