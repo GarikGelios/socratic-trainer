@@ -1,6 +1,6 @@
 # BABOK Chunk Generator
 
-Converts the BABOK HTML files in `chunker/chapters/` into `embeddings-chunks.jsonl`, the structured input used by the trainer's embedding uploader.
+Converts BABOK HTML files from the external book folder configured by `BOOK_PATH` into `embeddings-chunks.jsonl`, the structured input used by the trainer's embedding uploader.
 
 ## Generate Chunks
 
@@ -12,6 +12,14 @@ npm run chunk
 ```
 
 The output is written to `chunker/embeddings-chunks.jsonl` regardless of the current working directory. The chunker needs Node.js but no API keys.
+
+Before running it, set `BOOK_PATH` in the project-root `.env` file to the book folder containing `chapters/`:
+
+```env
+BOOK_PATH=../html-book
+```
+
+The example path is relative to the project root and should be replaced if your HTML book is elsewhere. See the [source-file inventory](PARSER_SPEC.md#1-source-file-inventory-and-schema-classification) for required chapter names and folders.
 
 ## How The Content Flows
 

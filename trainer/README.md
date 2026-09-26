@@ -31,7 +31,8 @@ The chat and training pages call the API endpoints. Route handlers validate requ
 | `lib/chunkStore.js` | Loads JSONL chunks and filters out chunks unsuitable for training. |
 | `lib/chunkAccessors.js` | Reads common identity and classification fields from chunk objects. |
 | `lib/chunkFormatting.js` | Formats chunk references and labels; builds complete task context and canonical-value guardrails. |
-| `lib/topicPools.js` | Selects chunks for chapter, task, concept, competency, perspective, and drill topics. |
+| `lib/topicPools.js` | Selects chunks for chapter, task, concept, competency, and perspective topics aligned with the BABOK table of contents. |
+| `lib/drills.js` | Weaves CBAP specialist drill framings (BACCM mapping, input/output lineage, guidelines matching, stakeholder matrix, multi-task technique mapping, financial analysis) into a question automatically when the chunk already selected for a BABOK topic fits that drill's shape. Not a selectable topic. |
 | `lib/aspectRotation.js` | Chooses varied question angles by chunk type. |
 | `lib/rag.js` | Embeds chat questions, queries Pinecone, and formats retrieved context. |
 | `lib/sessionStore.js` | Holds temporary in-memory chat and training sessions. Sessions are lost when the server stops. |
@@ -67,7 +68,7 @@ The checked-in JSON files are the application source of truth; the server code d
 | `GET`, `POST` | `/api/config` | Read or update supported app/training settings. |
 | `GET`, `POST` | `/api/prompts` | Read or update prompt templates and level instructions. |
 
-The request fields and topic values are implemented in `routes/train.js` and selected by `lib/topicPools.js`; consult those files when changing the API behavior.
+The request fields and topic values are implemented in `routes/train.js` and selected by `lib/topicPools.js`; CBAP specialist drills are layered on top by `lib/drills.js` once a chunk is picked. Consult those files when changing the API behavior.
 
 ## Pinecone And Embeddings
 

@@ -41,6 +41,7 @@ const { createRagPipeline } = require('./lib/rag');
 const { fillTemplate } = require('./lib/templates');
 const aspectRotation = require('./lib/aspectRotation');
 const topicPools = require('./lib/topicPools');
+const drills = require('./lib/drills');
 
 const chunkFormatting = createChunkFormatting({ chunkMap, categoryLabels: config.CHUNK_CATEGORY_LABELS });
 const rag = createRagPipeline({
@@ -61,7 +62,7 @@ const app = express();
 app.use(express.json());
 
 app.use(createChatRouter({ openai, config, retrieveContext: rag.retrieveContext, buildContextText: rag.buildContextText }));
-app.use(createTrainRouter({ openai, config, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, fillTemplate }));
+app.use(createTrainRouter({ openai, config, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, drills, fillTemplate }));
 app.use(createConfigRouter({ config }));
 
 app.listen(CONFIG.port, () => {

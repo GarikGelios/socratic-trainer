@@ -1,6 +1,8 @@
-// Resolves a `topic` request param (e.g. "task:plan-...", "chapter:3", "drill:...")
+// Resolves a `topic` request param (e.g. "task:plan-...", "chapter:3", "concept:baccm")
 // into a pool of trainable chunks. Isolated from the route handler so the topic
 // selection rules can be read/tested without spinning up Express.
+// CBAP specialist drills (BACCM mapping, input/output lineage, etc.) are not topic
+// values here — they are woven into question generation automatically; see lib/drills.js.
 const {
   getChunkType,
   getChunkChapterNum,
@@ -22,68 +24,45 @@ const COMPETENCY_CATEGORY_KEYWORDS = {
 };
 
 // concept:<token> topic values -> substring match against chunk.section_title within doc_type "overview"
+// (BABOK ToC 1.1-1.4 and 2.1-2.5)
 const CONCEPT_SECTION_KEYWORDS = {
-  baccm: 'Core Concept Model',
-  'requirements-classification': 'Requirements Classification',
+  'purpose-of-babok':             'Purpose of the BABOK',
+  'what-is-business-analysis':    'What is Business Analysis',
+  'who-is-a-business-analyst':    'Who is a Business Analyst',
+  'structure-of-babok':           'Structure of the BABOK',
+  baccm:                          'Core Concept Model',
+  'key-terms':                    'Key Terms',
+  'requirements-classification':  'Requirements Classification',
+  stakeholders:                  'Stakeholders',
+  'requirements-and-designs':    'Requirements and Designs',
 };
 
-// drill:<token> topic values -> CBAP specialist exam drills with a targeted chunk pool + LLM focus instruction
-const DRILL_DEFINITIONS = {
-  'drill:baccm-mapping': {
-    label: 'BACCM™ Core Concept Mapping',
-    poolFilter: (c) => getChunkType(c) === 'overview' && /core concept model/i.test(c.section_title || ''),
-    instruction: 'Focus this question on the BACCM™ (Business Analysis Core Concept Model): Change, Need, Solution, Stakeholder, Value, and Context. Test the student\'s understanding of how these six core concepts relate to and influence one another.',
-  },
-  'drill:input-output-lineage': {
-    label: 'Inputs & Outputs Lineage Drill',
-    poolFilter: (c) => getChunkType(c) === 'task_task_mapping',
-    instruction: 'Focus this question on tracing an artifact\'s lineage: identify which task PRODUCES a given output and which downstream task(s) consume it as an INPUT. Test cross-task input/output relationships, not single-task recall.',
-  },
-  'drill:guidelines-and-tools': {
-    label: 'Guidelines & Tools Matching Drill',
-    poolFilter: (c) => getChunkType(c) === 'task' && c.sub_section === 'Guidelines and Tools',
-    instruction: 'Focus this question on matching a specific Guideline or Tool to the correct BABOK task that uses it as an input to guide or constrain the task\'s execution.',
-  },
-  'drill:stakeholders': {
-    label: 'Task-to-Stakeholder Matrix Drill',
-    poolFilter: (c) => getChunkType(c) === 'task' && c.sub_section === 'Stakeholders',
-    instruction: 'Focus this question on matching stakeholder roles to the specific BABOK task(s) in which they participate or are affected, as if building a task-to-stakeholder responsibility matrix.',
-  },
-  'drill:technique-mapping': {
-    label: 'Technique-to-Task Mapping (Multi-Task Uses)',
-    poolFilter: (c) => getChunkType(c) === 'technique_task_mapping' && Array.isArray(c.mapped_task_ids) && c.mapped_task_ids.length > 1,
-    instruction: 'Focus this question on a technique that is used across MULTIPLE tasks or Knowledge Areas. Test whether the student can identify all applicable tasks/knowledge areas where this technique applies.',
-  },
-  'drill:financial-calculations': {
-    label: 'Financial & Quantitative Analysis (ROI, NPV, TCO)',
-    poolFilter: (c) => getChunkType(c) === 'technique' && c.technique_name === 'Financial Analysis',
-    instruction: 'Generate a quantitative business scenario requiring the student to apply Financial Analysis concepts (e.g., ROI, NPV, Total Cost of Ownership, payback period, cost-benefit comparison). Include realistic numbers where relevant and require the student to interpret or calculate a financial outcome to make a BA recommendation.',
-  },
-};
-
-// Returns { pool, relatedContextPool, topicLabelOverride, drillInstruction }
+// Returns { pool, relatedContextPool, topicLabelOverride }
 function selectChunkPool(topic, trainableChunks, getChunkLabel) {
   let pool = trainableChunks;
   let relatedContextPool = null;
   let topicLabelOverride = null;
-  let drillInstruction = '';
 
   if (!topic || typeof topic !== 'string') {
-    return { pool, relatedContextPool, topicLabelOverride, drillInstruction };
+    return { pool, relatedContextPool, topicLabelOverride };
   }
 
   const t = topic.toLowerCase();
 
   if (t.startsWith('chapter:')) {
     const chapterNum = parseInt(t.split(':')[1], 10);
-    if (chapterNum === 1) {
-      pool = trainableChunks.filter((c) => getChunkType(c) === 'overview' && getChunkChapterNum(c) === 1);
+    if (chapterNum === 1 || chapterNum === 2) {
+      pool = trainableChunks.filter((c) => getChunkType(c) === 'overview' && getChunkChapterNum(c) === chapterNum);
     } else if (chapterNum === 9) {
       pool = trainableChunks.filter((c) => getChunkType(c) === 'competency');
     } else if (chapterNum === 11) {
       pool = trainableChunks.filter((c) => getChunkType(c) === 'perspective');
     } else {
-      pool = trainableChunks.filter((c) => getChunkType(c) === 'task' && getChunkChapterNum(c) === chapterNum);
+      // Chapters 3-8 (Knowledge Area tasks): include task-relationship-mapping chunks
+      // for the same chapter so input/output lineage questions can surface naturally.
+      pool = trainableChunks.filter((c) =>
+        (getChunkType(c) === 'task' || getChunkType(c) === 'task_task_mapping') && getChunkChapterNum(c) === chapterNum
+      );
     }
   } else if (t.startsWith('concept:')) {
     const token = t.split(':')[1];
@@ -99,13 +78,6 @@ function selectChunkPool(topic, trainableChunks, getChunkLabel) {
     const token = t.split(':')[1];
     pool = trainableChunks.filter((c) => getChunkType(c) === 'perspective' && slugifyTaskLabel(c.perspective_name) === token);
     topicLabelOverride = pool[0] ? pool[0].perspective_name : token;
-  } else if (t.startsWith('drill:')) {
-    const drill = DRILL_DEFINITIONS[t];
-    if (drill) {
-      pool = trainableChunks.filter(drill.poolFilter);
-      drillInstruction = drill.instruction;
-      topicLabelOverride = drill.label;
-    }
   } else if (t.startsWith('task:')) {
     const taskToken = t.split(':')[1];
     const selectedTaskChunks = trainableChunks.filter((c) => getChunkType(c) === 'task' && getChunkTaskSelectorKeys(c).has(taskToken));
@@ -147,17 +119,18 @@ function selectChunkPool(topic, trainableChunks, getChunkLabel) {
   } else {
     pool = trainableChunks.filter((c) => {
       const type = getChunkType(c);
-      if (t === 'tasks') return type === 'task';
-      if (t === 'techniques') return type === 'technique';
+      // Include the related mapping doc_type alongside the primary one so lineage/
+      // multi-task drills can surface naturally within these broader buckets.
+      if (t === 'tasks') return type === 'task' || type === 'task_task_mapping';
+      if (t === 'techniques') return type === 'technique' || type === 'technique_task_mapping';
       if (t === 'glossary') return type === 'glossary';
-      if (t === 'concepts') return type === 'overview';
       return true;
     });
   }
 
   if (pool.length === 0) pool = trainableChunks;
 
-  return { pool, relatedContextPool, topicLabelOverride, drillInstruction };
+  return { pool, relatedContextPool, topicLabelOverride };
 }
 
-module.exports = { COMPETENCY_CATEGORY_KEYWORDS, CONCEPT_SECTION_KEYWORDS, DRILL_DEFINITIONS, selectChunkPool };
+module.exports = { COMPETENCY_CATEGORY_KEYWORDS, CONCEPT_SECTION_KEYWORDS, selectChunkPool };

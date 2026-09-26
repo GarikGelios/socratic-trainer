@@ -58,7 +58,7 @@
     },
     {
       "key": "elements",
-      "instruction": "Ask about the KEY ELEMENTS or components described for this task."
+      "instruction": "Ask about the KEY ELEMENTS or components described for this content."
     },
     {
       "key": "techniques",
@@ -77,8 +77,68 @@
       "instruction": "Ask about the STAKEHOLDERS involved in or affected by this task and their roles."
     },
     {
+      "key": "guidelines_and_tools",
+      "instruction": "Ask about the GUIDELINES AND TOOLS that inform or constrain how this task is performed."
+    },
+    {
       "key": "application",
-      "instruction": "Ask about a practical situation where this task would be applied or how it is performed."
+      "instruction": "Ask about a practical situation where this concept would be applied or how it is performed."
+    },
+    {
+      "key": "limitations_strengths",
+      "instruction": "Ask about the STRENGTHS or LIMITATIONS of using this technique in a given context."
+    },
+    {
+      "key": "technique_usage",
+      "instruction": "Ask which Knowledge Area(s) this technique is used in and why it fits that context."
+    },
+    {
+      "key": "task_association",
+      "instruction": "Ask which specific BABOK task(s) this technique supports and how it contributes to that task."
+    },
+    {
+      "key": "multi_task_mapping",
+      "instruction": "Ask the student to identify ALL tasks across different Knowledge Areas that use this technique."
+    },
+    {
+      "key": "upstream_downstream",
+      "instruction": "Ask about the UPSTREAM or DOWNSTREAM task relationship — which task supplies this input, or which task consumes this output next."
+    },
+    {
+      "key": "definition",
+      "instruction": "Ask the student to define this term or competency precisely in BABOK terms."
+    },
+    {
+      "key": "effectiveness_measures",
+      "instruction": "Ask how the EFFECTIVENESS of this competency is measured or demonstrated."
+    },
+    {
+      "key": "change_scope",
+      "instruction": "Ask about the CHANGE SCOPE (breadth/depth of change) relevant to this perspective."
+    },
+    {
+      "key": "impact_on_kas",
+      "instruction": "Ask about how this perspective IMPACTS a specific Knowledge Area or task execution."
+    },
+    {
+      "key": "methodologies",
+      "instruction": "Ask about the METHODOLOGIES, APPROACHES, OR TECHNIQUES associated with this perspective."
+    },
+    {
+      "key": "underlying_competencies",
+      "instruction": "Ask about the UNDERLYING COMPETENCIES emphasized within this perspective."
+    },
+    {
+      "key": "baccm_concepts",
+      "instruction": "Ask about one of the six BACCM™ core concepts (Change, Need, Solution, Stakeholder, Value, Context) and its relationship to the others."
+    },
+    {
+      "key": "classification_schema",
+      "instruction": "Ask about the REQUIREMENTS CLASSIFICATION SCHEMA and how a given requirement type is distinguished from the others."
+    },
+    {
+      "key": "key_terms",
+      "instruction": "Ask about the definition or correct usage of a key BABOK term introduced in this chapter."
     }
   ],
   "chunkCategoryLabels": {

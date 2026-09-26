@@ -4,8 +4,8 @@ const express = require('express');
 const path = require('path');
 const { trainSessions, generateSessionId, createTrainSession } = require('../lib/sessionStore');
 
-// deps: { openai, config, chunkMap, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, fillTemplate }
-function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, fillTemplate }) {
+// deps: { openai, config, chunkMap, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, drills, fillTemplate }
+function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, drills, fillTemplate }) {
   const router = express.Router();
   const { CONFIG, COMPLEXITY_LEVELS, TRAINING_CONFIG, PROMPTS, ASPECTS } = config;
   const { getChunkId, getChunkType } = accessors;
@@ -45,7 +45,7 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
     const levelConfig = COMPLEXITY_LEVELS[currentLevel];
 
     // Pick a chunk: filter by topic if provided, else random
-    let { pool, relatedContextPool, topicLabelOverride, drillInstruction } = selectChunkPool(topic, trainableChunks, getChunkLabel);
+    let { pool, relatedContextPool, topicLabelOverride } = selectChunkPool(topic, trainableChunks, getChunkLabel);
 
     // For higher levels, prefer richer content (tasks, techniques, mappings, perspectives, competencies)
     if (currentLevel >= 5) {
@@ -68,9 +68,11 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
 
     const chunk = pickFrom[Math.floor(Math.random() * pickFrom.length)];
     const referenceText = buildQuestionContext(chunk);
+    // Woven in automatically when the picked chunk fits a CBAP specialist drill shape (see lib/drills.js)
+    const drillInstruction = drills.getDrillInstructionForChunk(chunk);
 
     const isPinnedTopic = topic && typeof topic === 'string' &&
-      /^(task:|chapter:|concept:|competency:|perspective:|drill:)/.test(topic.toLowerCase());
+      /^(task:|chapter:|concept:|competency:|perspective:)/.test(topic.toLowerCase());
 
     let extraContext = '';
     if (currentLevel === 5 && !isPinnedTopic) {
