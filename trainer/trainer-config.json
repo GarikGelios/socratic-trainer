@@ -11,7 +11,9 @@
   },
   "training": {
     "autoProgressUpThreshold": 7,
-    "autoProgressDownThreshold": 4
+    "autoProgressDownThreshold": 4,
+    "dedupWindow": 10,
+    "suggestLevelChanges": true
   },
   "levels": {
     "1": {

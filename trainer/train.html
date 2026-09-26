@@ -341,16 +341,6 @@
 
   <div class="stats-bar" id="stats-bar">
     <div class="panel-handle"><span>📊 Stats</span><button class="close-panel" onclick="closeAllMobilePanels()" aria-label="Close">×</button></div>
-    <div class="stat">Level: <strong id="stat-level">1</strong><span id="stat-level-name" style="margin-left:4px;font-size:12px;color:#888">Recognition</span></div>
-    <div class="level-indicator" id="level-dots">
-      <span class="level-dot l1 active" title="Level 1: Recognition"></span>
-      <span class="level-dot" title="Level 2: Multi-Select"></span>
-      <span class="level-dot" title="Level 3: Understanding"></span>
-      <span class="level-dot" title="Level 4: Application"></span>
-      <span class="level-dot" title="Level 5: Analysis"></span>
-      <span class="level-dot" title="Level 6: Synthesis"></span>
-    </div>
-    <div class="divider"></div>
     <div class="stat">Questions: <strong id="stat-asked">0</strong></div>
     <div class="stat">Avg Score: <strong id="stat-avg">—</strong></div>
     <div class="divider"></div>
@@ -358,7 +348,7 @@
   </div>
 
   <div class="topic-bar" id="topic-bar">
-    <div class="panel-handle"><span>⚙️ Settings</span><button class="close-panel" onclick="closeAllMobilePanels()" aria-label="Close">×</button></div>
+    <div class="panel-handle"><span>🗃️ Categories</span><button class="close-panel" onclick="closeAllMobilePanels()" aria-label="Close">×</button></div>
     <label for="level">Level:</label>
     <select id="level">
       <option value="1">1 — Recognition (multiple choice)</option>
@@ -368,10 +358,6 @@
       <option value="5">5 — Analysis (compare &amp; relate)</option>
       <option value="6">6 — Synthesis (scenario-based)</option>
     </select>
-    <div class="suggest-controls">
-      <input type="checkbox" id="suggest-level" checked title="Show a suggestion when score consistently exceeds the level-change thresholds (set in Settings)">
-      <label for="suggest-level">Suggest level changes</label>
-    </div>
     <label for="topic">Topic:</label>
     <select id="topic">
       <option value="">All (random)</option>
@@ -449,11 +435,6 @@
         <option value="glossary">Glossary Terms</option>
       </optgroup>
     </select>
-    <div class="suggest-controls">
-      <label for="dedup-window" style="color:#555">Skip last</label>
-      <input type="number" id="dedup-window" value="10" min="1" max="100" title="Number of recent answers to check when avoiding chunk repetition">
-      <label for="dedup-window" style="color:#888">answers for repeats</label>
-    </div>
     <button id="ask-btn" onclick="askQuestion()">Ask me</button>
     <button class="secondary" onclick="resetSession()">Reset</button>
   </div>
@@ -481,9 +462,6 @@
   </div>
 
   <script>
-    const LEVEL_NAMES = { 1: 'Recognition', 2: 'Multi-Select', 3: 'Understanding', 4: 'Application', 5: 'Analysis', 6: 'Synthesis' };
-    const LEVEL_COLORS = ['', 'l1', 'l2', 'l3', 'l4', 'l5', 'l6'];
-
     let sessionId = null;
     let awaitingAnswer = false;
     let currentLevel = 1;
@@ -498,13 +476,6 @@
     // Sync level selector with state
     levelSelect.addEventListener('change', () => {
       currentLevel = parseInt(levelSelect.value, 10);
-      updateLevelDisplay();
-    });
-
-    // Sync Settings panel checkbox when topic-bar checkbox changes
-    document.getElementById('suggest-level').addEventListener('change', function() {
-      var cfgCb = document.getElementById('cfg-suggest-level');
-      if (cfgCb) cfgCb.checked = this.checked;
     });
 
     // Auto-grow textarea
@@ -563,25 +534,16 @@
       if (backdrop) backdrop.classList.remove('active');
     }
 
-    function updateLevelDisplay() {
-      document.getElementById('stat-level').textContent = currentLevel;
-      document.getElementById('stat-level-name').textContent = LEVEL_NAMES[currentLevel];
-      const dots = document.querySelectorAll('#level-dots .level-dot');
-      dots.forEach((dot, i) => {
-        dot.className = 'level-dot';
-        if (i < currentLevel) dot.classList.add(LEVEL_COLORS[i + 1], 'active');
-      });
-    }
-
     async function askQuestion() {
       setAskDisabled(true);
       closeAllMobilePanels();
       awaitingAnswer = false;
       inputArea.classList.add('hidden');
 
+      if (!_cfgDefaults) await loadCfg();
+
       // Sync level from selector
       currentLevel = parseInt(levelSelect.value, 10);
-      updateLevelDisplay();
 
       // Remove welcome screen if present
       const welcome = chatEl.querySelector('.welcome');
@@ -597,8 +559,8 @@
             sessionId,
             topic: document.getElementById('topic').value,
             level: currentLevel,
-            suggestLevel: document.getElementById('suggest-level').checked,
-            dedupWindow: parseInt(document.getElementById('dedup-window').value, 10) || 10,
+            suggestLevel: document.getElementById('cfg-suggest-level').checked,
+            dedupWindow: parseInt(document.getElementById('cfg-dedup-window').value, 10) || 10,
           }),
         });
         const data = await res.json();
@@ -785,7 +747,7 @@
         updateStats(data.stats, data.levelStats);
 
         // Show level suggestion only when checkbox is enabled
-        if (data.suggestion && data.suggestedLevel && document.getElementById('suggest-level').checked) {
+        if (data.suggestion && data.suggestedLevel && document.getElementById('cfg-suggest-level').checked) {
           showSuggestion(data.suggestion, data.suggestedLevel);
         }
       } catch (err) {
@@ -809,7 +771,6 @@
     function applyLevel(lvl) {
       currentLevel = lvl;
       levelSelect.value = lvl;
-      updateLevelDisplay();
     }
 
     function appendMsg(type, content, isHtml) {
@@ -881,7 +842,6 @@
       multiSelectActive = false;
       currentLevel = 1;
       levelSelect.value = '1';
-      updateLevelDisplay();
       inputArea.classList.add('hidden');
       chatEl.innerHTML = `<div class="welcome">
         <h2>BABOK® Socratic Training</h2>
@@ -934,9 +894,8 @@
       // General
       document.getElementById('cfg-up-threshold').value = cfg.training.autoProgressUpThreshold ?? 7;
       document.getElementById('cfg-dn-threshold').value = cfg.training.autoProgressDownThreshold ?? 4;
-      // Sync suggest-level checkbox from topic-bar into Settings panel
-      var tbCb = document.getElementById('suggest-level');
-      if (tbCb) document.getElementById('cfg-suggest-level').checked = tbCb.checked;
+      document.getElementById('cfg-dedup-window').value = cfg.training.dedupWindow ?? 10;
+      document.getElementById('cfg-suggest-level').checked = cfg.training.suggestLevelChanges ?? true;
       // Server info chips
       const chips = document.getElementById('cfg-server-chips');
       chips.innerHTML = [
@@ -1008,23 +967,25 @@
     async function saveCfgGeneral() {
       const up = parseFloat(document.getElementById('cfg-up-threshold').value);
       const dn = parseFloat(document.getElementById('cfg-dn-threshold').value);
-      if (isNaN(up) || isNaN(dn)) { showStatus('st-general', false, 'Invalid values'); return; }
-      // Sync suggest-level checkbox to topic-bar
-      var cfgCb = document.getElementById('cfg-suggest-level');
-      var tbCb  = document.getElementById('suggest-level');
-      if (cfgCb && tbCb) tbCb.checked = cfgCb.checked;
+      const dedupWindow = parseInt(document.getElementById('cfg-dedup-window').value, 10);
+      const suggestLevelChanges = document.getElementById('cfg-suggest-level').checked;
+      if (isNaN(up) || isNaN(dn) || !Number.isInteger(dedupWindow) || dedupWindow < 1 || dedupWindow > 100) {
+        showStatus('st-general', false, 'Invalid values');
+        return;
+      }
       try {
-        await postJson('/api/config', { training: { autoProgressUpThreshold: up, autoProgressDownThreshold: dn } });
-        if (_cfgDefaults) { _cfgDefaults.cfg.training.autoProgressUpThreshold = up; _cfgDefaults.cfg.training.autoProgressDownThreshold = dn; }
+        await postJson('/api/config', { training: { autoProgressUpThreshold: up, autoProgressDownThreshold: dn, dedupWindow, suggestLevelChanges } });
+        if (_cfgDefaults) {
+          Object.assign(_cfgDefaults.cfg.training, { autoProgressUpThreshold: up, autoProgressDownThreshold: dn, dedupWindow, suggestLevelChanges });
+        }
         showStatus('st-general', true);
       } catch(e) { showStatus('st-general', false); }
     }
     function resetCfgGeneral() {
       document.getElementById('cfg-up-threshold').value = 7;
       document.getElementById('cfg-dn-threshold').value = 4;
+      document.getElementById('cfg-dedup-window').value = 10;
       document.getElementById('cfg-suggest-level').checked = true;
-      var tbCb = document.getElementById('suggest-level');
-      if (tbCb) tbCb.checked = true;
     }
 
     // Single prompt field save/reset
@@ -1109,8 +1070,6 @@
       setTimeout(() => { document.getElementById('st-lvl').textContent = ''; }, 2500);
     }
 
-    // Initialize display
-    updateLevelDisplay();
   </script>
 
   <!-- Settings modal -->
@@ -1146,9 +1105,16 @@
                   <span class="hint">Avg score out of 10</span>
                 </div>
               </div>
+              <div class="cfg-row">
+                <div class="cfg-field">
+                  <label for="cfg-dedup-window">Skip recent answers for repeats</label>
+                  <input type="number" id="cfg-dedup-window" min="1" max="100" step="1" value="10">
+                  <span class="hint">Avoid repeating chunks from this many recent questions.</span>
+                </div>
+              </div>
               <div class="cfg-row" style="margin-top:4px">
                 <div class="cfg-field" style="flex-direction:row;align-items:center;gap:8px;flex:unset">
-                  <input type="checkbox" id="cfg-suggest-level" style="width:16px;height:16px;cursor:pointer;accent-color:#0d3b66" checked title="Mirror of the topic-bar checkbox">
+                  <input type="checkbox" id="cfg-suggest-level" style="width:16px;height:16px;cursor:pointer;accent-color:#0d3b66" checked>
                   <label for="cfg-suggest-level" style="font-size:13px;font-weight:600;color:#444;cursor:pointer">Enable level-change suggestions</label>
                 </div>
               </div>
@@ -1283,7 +1249,7 @@
     <button id="ask-btn-mobile" onclick="askQuestion()">Ask me</button>
     <button class="mob-reset" onclick="resetSession()">Reset</button>
     <button class="mob-icon-btn" id="stats-toggle-btn" onclick="toggleMobilePanel('stats')" title="Stats">📊</button>
-    <button class="mob-icon-btn" id="topic-toggle-btn" onclick="toggleMobilePanel('topic')" title="Settings">⚙️</button>
+    <button class="mob-icon-btn" id="topic-toggle-btn" onclick="toggleMobilePanel('topic')" title="Settings">🗃️</button>
   </div>
   <div class="sheet-backdrop" id="sheet-backdrop" onclick="closeAllMobilePanels()"></div>
 </body>
