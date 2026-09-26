@@ -1,5 +1,5 @@
 {
-  "_comment": "Override trainer defaults. All fields are optional — missing fields fall back to server.js defaults.",
+  "_comment": "Application settings loaded by trainer/config/index.js. Keep required fields present; server.js does not define duplicate defaults.",
   "server": {
     "port": 3000,
     "indexName": "ba-training-large-v2",
