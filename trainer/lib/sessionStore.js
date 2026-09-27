@@ -21,6 +21,7 @@ function createTrainSession() {
       4: { asked: 0, totalScore: 0 },
       5: { asked: 0, totalScore: 0 },
       6: { asked: 0, totalScore: 0 },
+      7: { asked: 0, totalScore: 0 },
     },
   };
 }

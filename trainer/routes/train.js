@@ -3,6 +3,11 @@
 const express = require('express');
 const path = require('path');
 const { trainSessions, generateSessionId, createTrainSession } = require('../lib/sessionStore');
+const { parseSingleChoice, parseMultiSelect } = require('../lib/questionParsing');
+const { detectLeakedWords } = require('../lib/leakageCheck');
+const { detectInvertedOptionPairs, detectSelfContradictingExplanations } = require('../lib/consistencyCheck');
+
+const MAX_LEVEL = 7;
 
 // deps: { openai, config, chunkMap, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, drills, fillTemplate }
 function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFormatting, aspectRotation, topicPools, drills, fillTemplate }) {
@@ -29,7 +34,7 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
       ? Math.floor(req.body.dedupWindow) : 10;
     const sid = (typeof sessionId === 'string' && sessionId.length <= 64) ? sessionId : generateSessionId();
 
-    const level = (typeof req.body.level === 'number' && req.body.level >= 1 && req.body.level <= 6)
+    const level = (typeof req.body.level === 'number' && req.body.level >= 1 && req.body.level <= MAX_LEVEL)
       ? req.body.level : null;
 
     if (!trainSessions.has(sid)) {
@@ -74,8 +79,9 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
     const isPinnedTopic = topic && typeof topic === 'string' &&
       /^(task:|chapter:|concept:|competency:|perspective:)/.test(topic.toLowerCase());
 
+    // Levels 5 and 7 are the "intersecting/complex scenario" tiers — blend in a second chunk's context
     let extraContext = '';
-    if (currentLevel === 5 && !isPinnedTopic) {
+    if ((currentLevel === 5 || currentLevel === 7) && !isPinnedTopic) {
       const sourcePool = (relatedContextPool && relatedContextPool.length > 0) ? relatedContextPool : pool;
       const otherPool = sourcePool.filter((c) => getChunkId(c) !== getChunkId(chunk) && getChunkType(c) !== getChunkType(chunk));
       if (otherPool.length > 0) {
@@ -88,94 +94,107 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
       ? '\n\nIMPORTANT: ' + fillTemplate(PROMPTS.topicConstraint, { topic: topicLabelOverride || getChunkLabel(chunk) })
       : '';
 
-    try {
+    // Rotate question angle by chunk type across session to avoid repetitive "main goal" stems.
+    const chunkType = getChunkType(chunk);
+    const candidates = getAspectCandidatesForType(chunkType, ASPECTS);
+    if (!session.aspectUsageByType) session.aspectUsageByType = {};
+    if (!session.aspectUsageByType[chunkType]) session.aspectUsageByType[chunkType] = {};
+    const usage = session.aspectUsageByType[chunkType];
+    candidates.forEach((a) => {
+      if (typeof usage[a.key] !== 'number') usage[a.key] = 0;
+    });
+    const minCount = Math.min(...candidates.map((a) => usage[a.key]));
+    const leastUsed = candidates.filter((a) => usage[a.key] === minCount);
+    const aspect = leastUsed[session.stats.asked % leastUsed.length];
+    usage[aspect.key] += 1;
+
+    // Levels 1 and 3 are both single-choice tiers — vary their stems the same way.
+    const singleChoiceStemDirective = levelConfig.mode === 'single'
+      ? `\nStem diversity directive: ${LEVEL1_STEM_VARIANTS[session.stats.asked % LEVEL1_STEM_VARIANTS.length]} Never start every question with \"What is the main goal/purpose of ...\"; vary openings.`
+      : '';
+
+    session.currentAspect = aspect.key;
+    session.currentAspectType = chunkType;
+
+    const canonicalGuardrail = buildCanonicalGuardrail(chunk, aspect.key);
+    const focusInstruction = drillInstruction || aspect.instruction;
+
+    const systemContent = `You are a BABOK® exam trainer. Complexity Level: ${currentLevel}/${MAX_LEVEL} (${levelConfig.name}).\n\n${levelConfig.promptInstruction}`;
+    const baseUserContent = `Generate a training question based on this BABOK content:\n\nType: ${getChunkCategory(chunk)}\nTopic: ${getChunkLabel(chunk)}\n\n${referenceText}${canonicalGuardrail}${extraContext}${topicConstraint}\n\nFocus instruction: ${focusInstruction} Do NOT ask about the general purpose or definition if those aspects have already been covered — vary the angle.${singleChoiceStemDirective}`;
+
+    async function generateRaw(extraDirective) {
       const completion = await openai.chat.completions.create({
         model: CONFIG.chatModel,
         messages: [
-          {
-            role: 'system',
-            content: `You are a BABOK® exam trainer. Complexity Level: ${currentLevel}/6 (${levelConfig.name}).\n\n${levelConfig.promptInstruction}`,
-          },
-          {
-            role: 'user',
-            content: (() => {
-              // Rotate question angle by chunk type across session to avoid repetitive "main goal" stems.
-              const chunkType = getChunkType(chunk);
-              const candidates = getAspectCandidatesForType(chunkType, ASPECTS);
-              if (!session.aspectUsageByType) session.aspectUsageByType = {};
-              if (!session.aspectUsageByType[chunkType]) session.aspectUsageByType[chunkType] = {};
-              const usage = session.aspectUsageByType[chunkType];
-              candidates.forEach((a) => {
-                if (typeof usage[a.key] !== 'number') usage[a.key] = 0;
-              });
-              const minCount = Math.min(...candidates.map((a) => usage[a.key]));
-              const leastUsed = candidates.filter((a) => usage[a.key] === minCount);
-              const aspect = leastUsed[session.stats.asked % leastUsed.length];
-              usage[aspect.key] += 1;
-
-              const level1StemDirective = currentLevel === 1
-                ? `\nStem diversity directive: ${LEVEL1_STEM_VARIANTS[session.stats.asked % LEVEL1_STEM_VARIANTS.length]} Never start every question with \"What is the main goal/purpose of ...\"; vary openings.`
-                : '';
-
-              session.currentAspect = aspect.key;
-              session.currentAspectType = chunkType;
-
-              const canonicalGuardrail = buildCanonicalGuardrail(chunk, aspect.key);
-              const focusInstruction = drillInstruction || aspect.instruction;
-
-              return `Generate a training question based on this BABOK content:\n\nType: ${getChunkCategory(chunk)}\nTopic: ${getChunkLabel(chunk)}\n\n${referenceText}${canonicalGuardrail}${extraContext}${topicConstraint}\n\nFocus instruction: ${focusInstruction} Do NOT ask about the general purpose or definition if those aspects have already been covered — vary the angle.${level1StemDirective}`;
-            })(),
-          },
+          { role: 'system', content: systemContent },
+          { role: 'user', content: baseUserContent + extraDirective },
         ],
         temperature: 0.7,
         max_tokens: levelConfig.maxTokensQ,
       });
+      return completion.choices[0].message.content.trim();
+    }
 
-      const rawQuestion = completion.choices[0].message.content.trim();
+    // Parses per the level's mode; falls back to the raw text with no options if parsing fails.
+    function parseByMode(raw) {
+      if (levelConfig.mode === 'single') {
+        const parsed = parseSingleChoice(raw, levelConfig.totalOptions);
+        if (parsed) return { question: parsed.question, options: parsed.options, correctAnswer: parsed.correctAnswer, correctAnswers: null, optionExplanations: null };
+      } else if (levelConfig.mode === 'multi') {
+        const parsed = parseMultiSelect(raw, levelConfig.totalOptions, levelConfig.correctMin);
+        if (parsed) return { question: parsed.question, options: parsed.options, correctAnswer: null, correctAnswers: parsed.correctAnswers, optionExplanations: parsed.optionExplanations };
+      }
+      return { question: raw, options: null, correctAnswer: null, correctAnswers: null, optionExplanations: null };
+    }
 
-      let question = rawQuestion;
-      let options = null;
-      let correctAnswer = null;
-      let correctAnswers = null;
-      let optionExplanations = null;
-      if (currentLevel === 1) {
-        const qMatch = rawQuestion.match(/QUESTION:\s*(.+?)(?=\n[A-D]\))/s);
-        const optMatches = [...rawQuestion.matchAll(/([A-D])\)\s*(.+)/g)];
-        const cMatch = rawQuestion.match(/CORRECT:\s*([A-D])/);
-        if (qMatch && optMatches.length === 4 && cMatch) {
-          question = qMatch[1].trim();
-          const parsedOptions = optMatches.map((m) => ({ letter: m[1], text: m[2].trim() }));
-          const correctText = parsedOptions.find((o) => o.letter === cMatch[1])?.text;
-          const letters = ['A', 'B', 'C', 'D'];
-          const shuffled = parsedOptions.map((o) => o.text);
-          for (let i = shuffled.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-          }
-          options = shuffled.map((text, i) => ({ letter: letters[i], text }));
-          correctAnswer = options.find((o) => o.text === correctText)?.letter || cMatch[1];
-        }
-      } else if (currentLevel === 2) {
-        const qMatch = rawQuestion.match(/QUESTION:\s*(.+?)(?=\n[A-F]\))/s);
-        const optMatches = [...rawQuestion.matchAll(/^([A-F])\)\s*(.+)$/gm)];
-        const explObj = {};
-        const derivedCorrect = [];
-        ['A', 'B', 'C', 'D', 'E', 'F'].forEach((l) => {
-          const re = new RegExp('EXPLAIN_' + l + ':\\s*(CORRECT|INCORRECT)\\s*\\|\\s*(.+)');
-          const m = rawQuestion.match(re);
-          if (m) {
-            explObj[l] = m[2].trim();
-            if (m[1].toUpperCase() === 'CORRECT') derivedCorrect.push(l);
-          }
+    // Checks a parsed result for known quality issues (stem leakage, inverted correct options,
+    // self-contradicting explanations) and returns human-readable issue descriptions for a retry.
+    function collectIssues(parsed) {
+      const issues = [];
+      if (!parsed.options) return issues; // freetext: nothing to validate
+
+      const correctOptions = levelConfig.mode === 'single'
+        ? parsed.options.filter((o) => o.letter === parsed.correctAnswer)
+        : (parsed.correctAnswers || []).map((l) => parsed.options.find((o) => o.letter === l)).filter(Boolean);
+
+      const leaked = detectLeakedWords(parsed.question, correctOptions.map((o) => o.text));
+      if (leaked.length > 0) {
+        issues.push(`The stem repeats the word(s) [${leaked.join(', ')}] from the correct option's own text, making it guessable without BABOK knowledge — rewrite the stem to avoid those words/word-roots.`);
+      }
+
+      if (levelConfig.mode === 'multi') {
+        detectInvertedOptionPairs(correctOptions).forEach((c) => {
+          issues.push(`Two options marked CORRECT assert opposite/inverted roles for ${c.entities.join(', ')} ("${c.textA}" vs "${c.textB}") — only one direction can be true. Adjust the distractors so multiple DISTINCT true aspects exist (e.g. one option about the producing task, one about the consuming task, one about classification) instead of reversing task roles to invent a second correct option.`);
         });
-        const cMatch = rawQuestion.match(/CORRECT:\s*([A-F]+)/);
-        if (qMatch && optMatches.length >= 4 && (derivedCorrect.length >= 2 || cMatch)) {
-          question = qMatch[1].trim();
-          options = optMatches.map((m) => ({ letter: m[1], text: m[2].trim() }));
-          correctAnswers = derivedCorrect.length >= 2 ? derivedCorrect : cMatch[1].toUpperCase().split('').filter((l) => /[A-F]/.test(l));
-          optionExplanations = explObj;
+
+        const optionsWithExpl = parsed.options.map((o) => ({ letter: o.letter, text: o.text, explanation: (parsed.optionExplanations || {})[o.letter] }));
+        detectSelfContradictingExplanations(optionsWithExpl).forEach((c) => {
+          issues.push(`The explanation for option "${c.text}" contradicts its own option text regarding ${c.entities.join(', ')} — an explanation must directly evaluate the exact statement in its option's text, never state the opposite.`);
+        });
+      }
+
+      return issues;
+    }
+
+    try {
+      let rawQuestion = await generateRaw('');
+      let result = parseByMode(rawQuestion);
+
+      // Safety net: for option-based levels, retry ONCE if validation finds stem leakage, inverted
+      // correct options, or self-contradicting explanations (backstop for the prompt-level rules).
+      const issues = collectIssues(result);
+      if (issues.length > 0) {
+        const retryDirective = `\n\nREVISION REQUIRED: Your draft has the following problem(s):\n- ${issues.join('\n- ')}\nRegenerate the ENTIRE question, fixing these issues while keeping the same topic and, where still factually valid, the same intended correct answer(s).`;
+        const retryRaw = await generateRaw(retryDirective);
+        const retryResult = parseByMode(retryRaw);
+        if (retryResult.options) {
+          rawQuestion = retryRaw;
+          result = retryResult;
         }
       }
+
+      const { question, options, correctAnswer, correctAnswers, optionExplanations } = result;
+      // mode === 'freetext': question stays as the raw trimmed completion text.
 
       session.currentChunk = chunk;
       session.currentQuestion = question;
@@ -189,7 +208,7 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
         sessionId: sid,
         question,
         options,
-        multiSelect: currentLevel === 2,
+        multiSelect: levelConfig.mode === 'multi',
         level: currentLevel,
         levelName: levelConfig.name,
         levelDescription: levelConfig.description,
@@ -202,6 +221,7 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
       res.status(500).json({ error: 'Failed to generate question' });
     }
   });
+
 
   router.post('/api/train/evaluate', async (req, res) => {
     const { sessionId, answer } = req.body;
@@ -229,8 +249,10 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
 
     let evaluation, overallScore;
     let optionResults = null;
-    if (currentLevel === 1 && session.currentCorrectAnswer) {
-      const selected = userAnswer.toUpperCase().replace(/[^A-D]/g, '')[0];
+    const validLetters = new Set((session.currentOptions || []).map((o) => o.letter));
+
+    if (levelConfig.mode === 'single' && session.currentCorrectAnswer) {
+      const selected = [...userAnswer.toUpperCase()].find((ch) => validLetters.has(ch)) || null;
       const correct = session.currentCorrectAnswer;
       const correctOption = (session.currentOptions || []).find((o) => o.letter === correct);
       if (selected === correct) {
@@ -259,9 +281,9 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
           evaluation = `## ❌ Incorrect\n\n**Overall:** 0/10\n\nYou selected **${selected || '?'}**, but the correct answer is **${correct})** ${correctOption ? correctOption.text : ''}.\n\n${referenceText.substring(0, 400)}`;
         }
       }
-    } else if (currentLevel === 2 && session.currentCorrectAnswers) {
+    } else if (levelConfig.mode === 'multi' && session.currentCorrectAnswers) {
       const correctSet = new Set(session.currentCorrectAnswers);
-      const selectedLetters = userAnswer.toUpperCase().replace(/[^A-F]/g, '').split('').filter(Boolean);
+      const selectedLetters = [...userAnswer.toUpperCase()].filter((ch) => validLetters.has(ch));
       const selectedSet = new Set(selectedLetters);
 
       const TP = selectedLetters.filter((l) => correctSet.has(l)).length;
@@ -290,9 +312,7 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
       }
     } else {
       try {
-        const evalSystemPrompt = currentLevel === 3
-          ? `You are a BABOK® exam evaluator. Level: 3/6 (Understanding).\n\n${levelConfig.evalInstruction}`
-          : `You are a BABOK® exam evaluator. Level: ${currentLevel}/6 (${levelConfig.name}).\n\n${levelConfig.evalInstruction}\n\nProvide a structured evaluation in this EXACT format:\n\n## Score\n**Completeness:** X/10\n**Correctness:** X/10\n**Terminology:** X/10\n**Overall:** X/10\n\n## What You Got Right\n- List correct points\n\n## Missing Points\n- List important points missed\n\n## Inaccuracies\n- List incorrect statements (or "None — good job!")\n\n## Improved Answer\nWrite a model answer using proper BABOK terminology.\n\nBe encouraging but honest.`;
+        const evalSystemPrompt = `You are a BABOK® exam evaluator. Level: ${currentLevel}/${MAX_LEVEL} (${levelConfig.name}).\n\n${levelConfig.evalInstruction}\n\nProvide a structured evaluation in this EXACT format:\n\n## Score\n**Completeness:** X/10\n**Correctness:** X/10\n**Terminology:** X/10\n**Overall:** X/10\n\n## What You Got Right\n- List correct points\n\n## Missing Points\n- List important points missed\n\n## Inaccuracies\n- List incorrect statements (or "None — good job!")\n\n## Improved Answer\nWrite a model answer using proper BABOK terminology.\n\nBe encouraging but honest.`;
 
         const completion = await openai.chat.completions.create({
           model: CONFIG.chatModel,
@@ -349,7 +369,7 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
     let suggestion = null;
     if (session.suggestLevel && ls.asked >= session.suggestThreshold) {
       const levelAvg = ls.totalScore / ls.asked;
-      if (levelAvg >= TRAINING_CONFIG.autoProgressUpThreshold && currentLevel < 6) {
+      if (levelAvg >= TRAINING_CONFIG.autoProgressUpThreshold && currentLevel < MAX_LEVEL) {
         suggestedLevel = currentLevel + 1;
         const next = COMPLEXITY_LEVELS[suggestedLevel];
         suggestion = fillTemplate(PROMPTS.levelSuggestionUp, { level: currentLevel, avg: levelAvg.toFixed(1), next: suggestedLevel, nextName: next.name });
@@ -368,7 +388,7 @@ function createTrainRouter({ openai, config, trainableChunks, accessors, chunkFo
       levelName: levelConfig.name,
       suggestedLevel,
       suggestion,
-      multiSelect: currentLevel === 2,
+      multiSelect: levelConfig.mode === 'multi',
       optionResults,
       category: getChunkCategory(chunk),
       topic: getChunkLabel(chunk),

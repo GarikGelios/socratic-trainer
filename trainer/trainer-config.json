@@ -15,42 +15,71 @@
     "dedupWindow": 10,
     "suggestLevelChanges": true
   },
+  "_levels_comment2": "mode is one of 'single' (radio, exactly 1 correct), 'multi' (checkbox, correctMin-correctMax correct), or 'freetext' (typed answer, no options). totalOptions/correctMin/correctMax are structural and not exposed for editing in the Settings UI.",
   "levels": {
     "1": {
       "name": "Recognition",
-      "description": "Multiple choice — pick the correct option",
-      "maxTokensQ": 350,
+      "description": "Single choice — 4 short, plain-language options, 1 correct answer",
+      "mode": "single",
+      "totalOptions": 4,
+      "correctMin": 1,
+      "correctMax": 1,
+      "maxTokensQ": 300,
       "maxTokensE": 400
     },
     "2": {
-      "name": "Multi-Select",
-      "description": "Select all correct options — 2 or more right answers from a list",
-      "maxTokensQ": 700,
-      "maxTokensE": 500
+      "name": "Basic Multi-Select",
+      "description": "Multi-select — 4 short, plain-language options, 2-3 correct answers",
+      "mode": "multi",
+      "totalOptions": 4,
+      "correctMin": 2,
+      "correctMax": 3,
+      "maxTokensQ": 400,
+      "maxTokensE": 400
     },
     "3": {
-      "name": "Understanding",
-      "description": "One-sentence answer — define or explain the purpose",
-      "maxTokensQ": 200,
-      "maxTokensE": 300
+      "name": "Formal Recognition",
+      "description": "Single choice — 4 formal BABOK-terminology options, 1 correct answer",
+      "mode": "single",
+      "totalOptions": 4,
+      "correctMin": 1,
+      "correctMax": 1,
+      "maxTokensQ": 400,
+      "maxTokensE": 400
     },
     "4": {
-      "name": "Application",
-      "description": "Short structured answer — describe elements, list steps, explain usage",
-      "maxTokensQ": 200,
-      "maxTokensE": 1200
+      "name": "Formal Multi-Select",
+      "description": "Multi-select — 4 nuanced, scenario-based options, 2-3 correct answers",
+      "mode": "multi",
+      "totalOptions": 4,
+      "correctMin": 2,
+      "correctMax": 3,
+      "maxTokensQ": 500,
+      "maxTokensE": 400
     },
     "5": {
-      "name": "Analysis",
-      "description": "Compare, contrast, and explain relationships between BABOK elements",
-      "maxTokensQ": 250,
-      "maxTokensE": 1500
+      "name": "Complex Multi-Select",
+      "description": "Multi-select — 6 densely-distractored options across intersecting BABOK components, 2-5 correct answers",
+      "mode": "multi",
+      "totalOptions": 6,
+      "correctMin": 2,
+      "correctMax": 5,
+      "maxTokensQ": 650,
+      "maxTokensE": 400
     },
     "6": {
-      "name": "Synthesis",
-      "description": "Scenario-based — design a BA approach using multiple BABOK concepts",
-      "maxTokensQ": 350,
-      "maxTokensE": 2000
+      "name": "Short Synthesis",
+      "description": "Free-text — direct conceptual recall, expect a 1-sentence answer",
+      "mode": "freetext",
+      "maxTokensQ": 250,
+      "maxTokensE": 400
+    },
+    "7": {
+      "name": "Deep Synthesis",
+      "description": "Free-text — high-complexity scenario, expect a 2-4 sentence synthesized answer",
+      "mode": "freetext",
+      "maxTokensQ": 400,
+      "maxTokensE": 700
     }
   },
   "aspects": [

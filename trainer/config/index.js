@@ -31,15 +31,21 @@ const TRAINING_CONFIG = Object.assign({}, cfgFile.training);
 const CHUNK_CATEGORY_LABELS = Object.assign({}, cfgFile.chunkCategoryLabels);
 const ASPECTS = Array.isArray(cfgFile.aspects) ? cfgFile.aspects.slice() : [];
 
-// Merge trainer-config.json (name/description/token limits) with trainer-prompts.json
-// (promptInstruction/evalInstruction) into one COMPLEXITY_LEVELS map, keyed 1-6.
+// Merge trainer-config.json (name/description/mode/token limits) with trainer-prompts.json
+// (promptInstruction/evalInstruction) into one COMPLEXITY_LEVELS map, keyed 1-7.
+// mode is 'single' (radio), 'multi' (checkbox), or 'freetext' (typed answer).
+const LEVEL_COUNT = 7;
 const COMPLEXITY_LEVELS = {};
-for (let n = 1; n <= 6; n++) {
+for (let n = 1; n <= LEVEL_COUNT; n++) {
   const c = (cfgFile.levels && cfgFile.levels[n]) || {};
   const p = (promptsFile.levels && promptsFile.levels[n]) || {};
   COMPLEXITY_LEVELS[n] = {
     name: c.name,
     description: c.description,
+    mode: c.mode,
+    totalOptions: c.totalOptions,
+    correctMin: c.correctMin,
+    correctMax: c.correctMax,
     maxTokensQ: c.maxTokensQ,
     maxTokensE: c.maxTokensE,
     promptInstruction: p.promptInstruction || '',

@@ -12,7 +12,16 @@ function createConfigRouter({ config }) {
     const levels = {};
     Object.keys(COMPLEXITY_LEVELS).forEach((k) => {
       const l = COMPLEXITY_LEVELS[k];
-      levels[k] = { name: l.name, description: l.description, maxTokensQ: l.maxTokensQ, maxTokensE: l.maxTokensE };
+      levels[k] = {
+        name: l.name,
+        description: l.description,
+        mode: l.mode,
+        totalOptions: l.totalOptions,
+        correctMin: l.correctMin,
+        correctMax: l.correctMax,
+        maxTokensQ: l.maxTokensQ,
+        maxTokensE: l.maxTokensE,
+      };
     });
     res.json({
       server: { port: CONFIG.port, indexName: CONFIG.indexName, embeddingModel: CONFIG.embeddingModel, chatModel: CONFIG.chatModel, topK: CONFIG.topK, scoreThreshold: CONFIG.scoreThreshold, maxHistoryMessages: CONFIG.maxHistoryMessages },
