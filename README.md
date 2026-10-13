@@ -55,3 +55,5 @@ Start with the guide matching the work you want to do:
 - Keep the configured Pinecone index and embedding model aligned between upload and server query settings. See the [trainer guide](trainer/README.md#pinecone-and-embeddings).
 - If chunk content changes, regenerate the chunks and refresh the embeddings; the [trainer guide](trainer/README.md#refreshing-the-index) covers the sequence.
 - BABOK® is copyrighted by IIBA®. This project is for personal, non-commercial study only.
+
+test git hook sync with Google Drive
