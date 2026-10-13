@@ -24,8 +24,8 @@ const CONFIG = {
   //embeddingModel: 'text-embedding-3-small',
   embeddingModel: 'text-embedding-3-large',
   chatModel: 'gpt-4o-mini',
-  topK: 5,               // number of chunks to retrieve
-  scoreThreshold: 0.3,    // minimum similarity score to include
+  topK: 10,               // number of chunks to retrieve
+  scoreThreshold: 0.6,    // minimum similarity score to include
 };
 
 // ============================================================================

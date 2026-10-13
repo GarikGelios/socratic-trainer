@@ -19,6 +19,7 @@ const OpenAI = require('openai');
 // ============================================================================
 
 const CONFIG = {
+//  indexName: 'ba-training-large-v2',
 //  indexName: 'ba-training',
   indexName: 'ba-training-large-v2',
   // Chunks file produced by the chunker module — resolved relative to this file
